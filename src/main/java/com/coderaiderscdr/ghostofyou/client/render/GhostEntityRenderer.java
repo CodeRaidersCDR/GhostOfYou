@@ -4,7 +4,6 @@ import com.coderaiderscdr.ghostofyou.GhostOfYou;
 import com.coderaiderscdr.ghostofyou.config.ConfigManager;
 import com.coderaiderscdr.ghostofyou.entity.GhostEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
@@ -15,12 +14,9 @@ import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Renders {@link GhostEntity} as a translucent player-shaped figure.
- */
+/** Renders {@link GhostEntity} as a translucent player-shaped figure. */
 public class GhostEntityRenderer extends LivingEntityRenderer<GhostEntity, PlayerModel<GhostEntity>> {
 
     private static final ResourceLocation GHOST_TEXTURE =
@@ -44,30 +40,16 @@ public class GhostEntityRenderer extends LivingEntityRenderer<GhostEntity, Playe
     public void render(GhostEntity entity, float entityYaw, float partialTick,
                        PoseStack poseStack, MultiBufferSource bufferSource, int packedLight) {
 
-        double visualX = entity.hasPlaybackRenderPosition() ? entity.getPlaybackRenderX() : entity.getX();
-        double visualY = entity.hasPlaybackRenderPosition() ? entity.getPlaybackRenderY() : entity.getY();
-        double visualZ = entity.hasPlaybackRenderPosition() ? entity.getPlaybackRenderZ() : entity.getZ();
-
         int maxDist = ConfigManager.renderDistance();
-        if (this.entityRenderDispatcher.distanceToSqr(visualX, visualY, visualZ) > (double) (maxDist * maxDist)) {
+        if (this.entityRenderDispatcher.distanceToSqr(entity) > (double) (maxDist * maxDist)) {
             return;
         }
 
         float alpha = ConfigManager.ghostTransparency();
-        MultiBufferSource alphaSource = renderType -> {
-            VertexConsumer consumer = bufferSource.getBuffer(renderType);
-            return new AlphaVertexConsumer(consumer, alpha);
-        };
+        MultiBufferSource alphaSource = renderType ->
+                new AlphaVertexConsumer(bufferSource.getBuffer(renderType), alpha);
 
-        poseStack.pushPose();
-        if (entity.hasPlaybackRenderPosition()) {
-            double vanillaX = Mth.lerp((double) partialTick, entity.xOld, entity.getX());
-            double vanillaY = Mth.lerp((double) partialTick, entity.yOld, entity.getY());
-            double vanillaZ = Mth.lerp((double) partialTick, entity.zOld, entity.getZ());
-            poseStack.translate(visualX - vanillaX, visualY - vanillaY, visualZ - vanillaZ);
-        }
         super.render(entity, entityYaw, partialTick, poseStack, alphaSource, packedLight);
-        poseStack.popPose();
     }
 
     @Override

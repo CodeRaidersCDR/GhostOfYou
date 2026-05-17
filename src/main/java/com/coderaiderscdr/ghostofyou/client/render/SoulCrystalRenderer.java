@@ -46,7 +46,7 @@ public class SoulCrystalRenderer extends EntityRenderer<SoulCrystalEntity> {
 
         // Smooth bobbing: ±0.12 blocks on a sine wave
         float bob = Mth.sin((entity.tickCount + partialTick) * 0.12f) * 0.12f;
-        poseStack.translate(0.0, 1.2 + bob, 0.0);
+        poseStack.translate(0.0, 1.0 + bob, 0.0);
 
         // Continuous spin around Y axis (3° per tick = 60 RPM)
         float angle = (entity.tickCount + partialTick) * 3f;

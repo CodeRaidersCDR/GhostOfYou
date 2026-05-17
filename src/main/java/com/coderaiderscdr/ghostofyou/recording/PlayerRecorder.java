@@ -48,6 +48,7 @@ public class PlayerRecorder {
         this.lastSafeX = player.getX();
         this.lastSafeY = player.getY();
         this.lastSafeZ = player.getZ();
+        captureSpawnFrame();
     }
 
     // ------------------------------------------------------------------
@@ -74,11 +75,37 @@ public class PlayerRecorder {
      * interval. Used at death so the recording ends at the actual death pose.
      */
     public void captureImmediateFrame() {
-        if (!ConfigManager.isRecordingEnabled()) return;
-
         int ticksSincePreviousFrame = Math.max(1, tickSinceLastFrame);
         tickSinceLastFrame = 0;
         captureFrame(ticksSincePreviousFrame);
+    }
+
+    public void captureSpawnFrame() {
+        tickSinceLastFrame = 1;
+        captureFrame(1);
+    }
+
+    public void captureEmergencyDeathFrames(double deathX, double deathY, double deathZ) {
+        float yaw = player.getYRot();
+        float pitch = player.getXRot();
+        short yawCenti = (short) Math.round(yaw * 100f);
+        short pitchCenti = (short) Math.round(pitch * 100f);
+        byte heldSlot = (byte) player.getInventory().selected;
+        byte flags = Frame.FLAG_HURT;
+        if (player.onGround()) flags |= Frame.FLAG_ON_GROUND;
+
+        frameBuffer.write((short) 1, 0.0f, 0.0f, 0.0f,
+                yawCenti, pitchCenti, flags, heldSlot, 0, 0);
+        frameBuffer.write((short) 1, 0.0f, 0.0f, 0.0f,
+                yawCenti, pitchCenti, flags, heldSlot, 0, 0);
+
+        prevX = deathX;
+        prevY = deathY;
+        prevZ = deathZ;
+        prevYaw = yaw;
+        prevPitch = pitch;
+        prevHeldSlot = heldSlot;
+        initialized = true;
     }
 
     /** Sample the player's current state and write one frame. */

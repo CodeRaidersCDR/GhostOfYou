@@ -24,9 +24,9 @@ public class ModEntities {
     /** The ghost entity — a replaying phantom of a fallen player. */
     public static final RegistryObject<EntityType<GhostEntity>> GHOST =
             ENTITY_TYPES.register("ghost", () ->
-                    EntityType.Builder.<GhostEntity>of(GhostEntity::new, MobCategory.MISC)
+                            EntityType.Builder.<GhostEntity>of(GhostEntity::new, MobCategory.MISC)
                             .sized(0.6f, 1.8f)        // same hitbox as a player
-                            .clientTrackingRange(10)
+                            .clientTrackingRange(12)
                             .updateInterval(1)
                             .build(new ResourceLocation(GhostOfYou.MOD_ID, "ghost").toString()));
 
@@ -36,10 +36,12 @@ public class ModEntities {
      */
     public static final RegistryObject<EntityType<SoulCrystalEntity>> SOUL_CRYSTAL =
             ENTITY_TYPES.register("soul_crystal", () ->
-                    EntityType.Builder.<SoulCrystalEntity>of(SoulCrystalEntity::new, MobCategory.MISC)
-                            .sized(0.5f, 0.5f)
-                            .clientTrackingRange(8)
-                            .updateInterval(5)
+                            EntityType.Builder.<SoulCrystalEntity>of(SoulCrystalEntity::new, MobCategory.MISC)
+                            .sized(1.5f, 2.5f)
+                            .clientTrackingRange(16)
+                            .updateInterval(20)
+                            .fireImmune()
+                            .noSummon()
                             .build(new ResourceLocation(GhostOfYou.MOD_ID, "soul_crystal").toString()));
 
     // ------------------------------------------------------------------

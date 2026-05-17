@@ -25,8 +25,6 @@ import java.util.UUID;
 /**
  * Listens for player death events and spawns a {@link GhostEntity} at the
  * death location, seeded with the player's recording buffer.
- *
- * <p>Also enforces per-chunk and per-player ghost caps via FIFO eviction.
  */
 public class PlayerDeathHandler {
 
@@ -40,12 +38,10 @@ public class PlayerDeathHandler {
 
         ServerLevel level = player.serverLevel();
 
-        // ---- Determine death position ----
         double deathX = player.getX();
         double deathY = player.getY();
         double deathZ = player.getZ();
 
-        // Handle void death: use last safe Y recorded by PlayerRecorder
         PlayerRecorder recorder = PlayerTickHandler.getRecorder(player.getUUID());
         if (recorder != null && deathY < level.getMinBuildHeight()) {
             double[] safe = recorder.getLastSafePosition();
@@ -57,30 +53,24 @@ public class PlayerDeathHandler {
         recorder.captureImmediateFrame();
 
         CircularFrameBuffer buffer = recorder.getFrameBuffer();
-        ActionEventLog eventLog    = recorder.getEventLog();
+        ActionEventLog eventLog = recorder.getEventLog();
 
         if (buffer.size() == 0) {
-            GhostOfYou.LOGGER.debug("Skipping ghost spawn for {} — no frames recorded", player.getName().getString());
-            return;
+            GhostOfYou.LOGGER.debug("Recorder for {} had no frames at death; writing emergency death frames",
+                    player.getName().getString());
+            recorder.captureEmergencyDeathFrames(deathX, deathY, deathZ);
         }
 
-        // ---- Build the ghost ----
         GhostEntity ghost = ModEntities.GHOST.get().create(level);
         if (ghost == null) return;
 
-        ghost.initFromRecording(player, deathX, deathY, deathZ,
-                buffer, eventLog.getAll());
+        ghost.initFromRecording(player, deathX, deathY, deathZ, buffer, eventLog.getAll());
 
-        // ---- Cap enforcement (before adding to world) ----
         enforceChunkCap(level, deathX, deathZ);
         enforcePlayerCap(level, player.getUUID());
 
         level.addFreshEntity(ghost);
 
-        // ---- Spawn Soul Crystal at death location ----
-        // The crystal is the stationary, always-visible interaction point.
-        // It hovers at the death coords, glows with soul-fire particles,
-        // and is the target for the Ghost Banisher right-click.
         SoulCrystalEntity crystal = ModEntities.SOUL_CRYSTAL.get().create(level);
         if (crystal != null) {
             crystal.setPos(deathX, deathY, deathZ);
@@ -92,22 +82,12 @@ public class PlayerDeathHandler {
         GhostOfYou.LOGGER.info("Spawned ghost of {} at ({},{},{}) with {} frames",
                 player.getName().getString(), deathX, deathY, deathZ, buffer.size());
 
-        // Notify the player so they know where to find their ghost after respawn
         player.sendSystemMessage(Component.translatable("ghostofyou.ghost_spawned",
                 (int) deathX, (int) deathY, (int) deathZ, buffer.size()));
 
-        // Reset the recorder buffer so the next life starts fresh
         recorder.rebuildBuffer();
     }
 
-    // ------------------------------------------------------------------
-    // Cap enforcement
-    // ------------------------------------------------------------------
-
-    /**
-     * If the chunk at (deathX, deathZ) already has {@code maxGhostsPerChunk}
-     * ghosts, remove the oldest one (FIFO).
-     */
     private static void enforceChunkCap(ServerLevel level, double deathX, double deathZ) {
         int max = ConfigManager.maxGhostsPerChunk();
         BlockPos chunkOrigin = new BlockPos(
@@ -124,17 +104,12 @@ public class PlayerDeathHandler {
         }
     }
 
-    /**
-     * If the player already has {@code maxGhostsPerPlayer} ghosts in this
-     * dimension, remove the oldest one (FIFO).
-     */
     private static void enforcePlayerCap(ServerLevel level, UUID ownerUUID) {
         int max = ConfigManager.maxGhostsPerPlayer();
-        java.util.List<GhostEntity> playerGhosts = new java.util.ArrayList<>();
-        for (net.minecraft.world.entity.Entity e : level.getAllEntities()) {
-            if (e instanceof GhostEntity g && g.isAlive() && ownerUUID.equals(g.getOwnerUUID())) {
-                playerGhosts.add(g);
-            }
+        List<GhostEntity> playerGhosts = new ArrayList<>();
+        for (GhostEntity ghost : level.getEntities(ModEntities.GHOST.get(),
+                ghost -> ghost.isAlive() && ownerUUID.equals(ghost.getOwnerUUID()))) {
+            playerGhosts.add(ghost);
         }
         while (playerGhosts.size() >= max) {
             GhostEntity oldest = playerGhosts.stream()

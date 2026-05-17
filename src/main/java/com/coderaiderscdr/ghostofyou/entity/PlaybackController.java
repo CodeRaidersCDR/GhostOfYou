@@ -4,6 +4,7 @@ import com.coderaiderscdr.ghostofyou.GhostOfYou;
 import com.coderaiderscdr.ghostofyou.config.ConfigManager;
 import com.coderaiderscdr.ghostofyou.recording.Frame;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.InteractionHand;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -40,6 +41,7 @@ public class PlaybackController {
 
     /** Ticks waited since last loop reset. */
     private int loopDelayCounter = 0;
+    private byte previousFlags = 0;
 
     /**
      * Create a controller from raw, ordered frame bytes.
@@ -50,6 +52,20 @@ public class PlaybackController {
      * @param deathZ        absolute Z coordinate where the player died
      */
     public PlaybackController(byte[] rawFrameBytes, double deathX, double deathY, double deathZ) {
+        if (rawFrameBytes.length < Frame.BYTES * 2) {
+            byte[] padded = new byte[Frame.BYTES * 2];
+            if (rawFrameBytes.length >= Frame.BYTES) {
+                System.arraycopy(rawFrameBytes, 0, padded, 0, Frame.BYTES);
+                System.arraycopy(rawFrameBytes, 0, padded, Frame.BYTES, Frame.BYTES);
+                ByteBuffer.wrap(padded).putShort(Frame.BYTES, (short) 20);
+            } else {
+                ByteBuffer paddedBuffer = ByteBuffer.wrap(padded);
+                paddedBuffer.putShort(0, (short) 20);
+                paddedBuffer.putShort(Frame.BYTES, (short) 20);
+            }
+            rawFrameBytes = padded;
+        }
+
         this.frames     = ByteBuffer.wrap(rawFrameBytes);
         this.frameCount = rawFrameBytes.length / Frame.BYTES;
 
@@ -128,26 +144,37 @@ public class PlaybackController {
             frameTick = 0;
         }
 
+        ghost.xo = ghost.getX();
+        ghost.yo = ghost.getY();
+        ghost.zo = ghost.getZ();
+        ghost.xOld = ghost.getX();
+        ghost.yOld = ghost.getY();
+        ghost.zOld = ghost.getZ();
         ghost.setPos(currentX, currentY, currentZ);
-        ghost.setPlaybackRenderPosition(currentX, currentY, currentZ);
         ghost.setDeltaMovement(currentX - previousX, currentY - previousY, currentZ - previousZ);
         ghost.hasImpulse = true;
 
         float yaw = yawCenti / 100.0f;
         float pitch = pitchCenti / 100.0f;
+        ghost.yRotO = ghost.getYRot();
+        ghost.xRotO = ghost.getXRot();
+        ghost.yHeadRotO = ghost.yHeadRot;
+        ghost.yBodyRotO = ghost.yBodyRot;
         ghost.setYRot(yaw);
         ghost.setXRot(pitch);
         ghost.setYHeadRot(yaw);
         ghost.setYBodyRot(yaw);
-        ghost.yRotO = yaw;
-        ghost.xRotO = pitch;
-        ghost.yHeadRotO = yaw;
-        ghost.yBodyRotO = yaw;
 
         ghost.setShiftKeyDown((flags & Frame.FLAG_SNEAK) != 0);
         ghost.setSprinting((flags & Frame.FLAG_SPRINT) != 0);
         ghost.setSwimming((flags & Frame.FLAG_SWIM) != 0);
+        ghost.setOnGround((flags & Frame.FLAG_ON_GROUND) != 0);
         ghost.applyRecordedPose(flags);
+
+        if ((flags & Frame.FLAG_ATTACK) != 0 && (previousFlags & Frame.FLAG_ATTACK) == 0) {
+            ghost.swing(InteractionHand.MAIN_HAND);
+        }
+        previousFlags = flags;
 
         boolean onFire = (flags & Frame.FLAG_ON_FIRE) != 0;
         ghost.setSharedFlagOnFire(onFire);
@@ -167,8 +194,14 @@ public class PlaybackController {
         frameTargetX = startX;
         frameTargetY = startY;
         frameTargetZ = startZ;
+        previousFlags = 0;
+        ghost.xo = ghost.getX();
+        ghost.yo = ghost.getY();
+        ghost.zo = ghost.getZ();
+        ghost.xOld = ghost.getX();
+        ghost.yOld = ghost.getY();
+        ghost.zOld = ghost.getZ();
         ghost.setPos(startX, startY, startZ);
-        ghost.setPlaybackRenderPosition(startX, startY, startZ);
         ghost.setDeltaMovement(0.0, 0.0, 0.0);
     }
 

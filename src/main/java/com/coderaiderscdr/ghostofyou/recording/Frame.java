@@ -34,10 +34,8 @@ public final class Frame {
     public static final byte FLAG_ON_GROUND  = (byte) (1 << 4);
     public static final byte FLAG_USING_ITEM = (byte) (1 << 5);
     public static final byte FLAG_ATTACK     = (byte) (1 << 6);
-    public static final byte FLAG_ON_FIRE    = (byte) (1 << 7);
-    /** @deprecated bit 7 is now used for recorded fire visuals. */
-    @Deprecated
-    public static final byte FLAG_HURT       = FLAG_ON_FIRE;
+    public static final byte FLAG_HURT       = (byte) (1 << 7);
+    public static final byte FLAG_ON_FIRE    = FLAG_HURT;
 
     private Frame() {}
 

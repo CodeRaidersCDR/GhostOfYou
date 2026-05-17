@@ -51,14 +51,6 @@ public class GhostEntity extends Monster {
 
     private static final EntityDataAccessor<String> DATA_OWNER_NAME =
             SynchedEntityData.defineId(GhostEntity.class, EntityDataSerializers.STRING);
-    private static final EntityDataAccessor<Boolean> DATA_RENDER_POS_VALID =
-            SynchedEntityData.defineId(GhostEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<Float> DATA_RENDER_X =
-            SynchedEntityData.defineId(GhostEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Float> DATA_RENDER_Y =
-            SynchedEntityData.defineId(GhostEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Float> DATA_RENDER_Z =
-            SynchedEntityData.defineId(GhostEntity.class, EntityDataSerializers.FLOAT);
 
     // ------------------------------------------------------------------
     // NBT keys
@@ -116,10 +108,6 @@ public class GhostEntity extends Monster {
     protected void defineSynchedData() {
         super.defineSynchedData();
         this.entityData.define(DATA_OWNER_NAME, "");
-        this.entityData.define(DATA_RENDER_POS_VALID, false);
-        this.entityData.define(DATA_RENDER_X, 0.0f);
-        this.entityData.define(DATA_RENDER_Y, 0.0f);
-        this.entityData.define(DATA_RENDER_Z, 0.0f);
     }
 
     // ------------------------------------------------------------------
@@ -157,7 +145,6 @@ public class GhostEntity extends Monster {
 
         double[] start = playbackController.getStartPosition();
         this.setPos(start[0], start[1], start[2]);
-        this.setPlaybackRenderPosition(start[0], start[1], start[2]);
     }
 
     // ------------------------------------------------------------------
@@ -181,6 +168,16 @@ public class GhostEntity extends Monster {
         if (!level().isClientSide() && !ConfigManager.isPlaybackPaused() && shouldTickPlaybackThisTick()) {
             tickPlayback();
         }
+
+        updateWalkAnimationFromPlayback();
+    }
+
+    private void updateWalkAnimationFromPlayback() {
+        double dx = this.getDeltaMovement().x;
+        double dz = this.getDeltaMovement().z;
+        float speed = (float) Math.sqrt(dx * dx + dz * dz) * 4.0f;
+        if (speed > 1.0f) speed = 1.0f;
+        this.walkAnimation.update(speed, 0.4f);
     }
 
     /**
@@ -282,29 +279,6 @@ public class GhostEntity extends Monster {
         }
     }
 
-    void setPlaybackRenderPosition(double x, double y, double z) {
-        this.entityData.set(DATA_RENDER_POS_VALID, true);
-        this.entityData.set(DATA_RENDER_X, (float) x);
-        this.entityData.set(DATA_RENDER_Y, (float) y);
-        this.entityData.set(DATA_RENDER_Z, (float) z);
-    }
-
-    public boolean hasPlaybackRenderPosition() {
-        return this.entityData.get(DATA_RENDER_POS_VALID);
-    }
-
-    public double getPlaybackRenderX() {
-        return this.entityData.get(DATA_RENDER_X);
-    }
-
-    public double getPlaybackRenderY() {
-        return this.entityData.get(DATA_RENDER_Y);
-    }
-
-    public double getPlaybackRenderZ() {
-        return this.entityData.get(DATA_RENDER_Z);
-    }
-
     // ------------------------------------------------------------------
     // NBT persistence
     // ------------------------------------------------------------------
@@ -342,7 +316,6 @@ public class GhostEntity extends Monster {
                     tag.getCompound(NBT_RECORDING));
             double[] start = playbackController.getStartPosition();
             this.setPos(start[0], start[1], start[2]);
-            this.setPlaybackRenderPosition(start[0], start[1], start[2]);
         }
     }
 

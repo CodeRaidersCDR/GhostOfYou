@@ -56,10 +56,10 @@ public class SoulCrystalEntity extends Entity {
             // Soul fire particle halo
             if (this.tickCount % 4 == 0 && level() instanceof ServerLevel sl) {
                 sl.sendParticles(ParticleTypes.SOUL,
-                        getX(), getY() + 1.0, getZ(),
+                        getX(), getY() + 1.25, getZ(),
                         2, 0.2, 0.25, 0.2, 0.01);
                 sl.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
-                        getX(), getY() + 0.8, getZ(),
+                        getX(), getY() + 1.25, getZ(),
                         1, 0.15, 0.1, 0.15, 0.01);
             }
 
@@ -102,6 +102,12 @@ public class SoulCrystalEntity extends Entity {
 
     @Override
     public boolean isPickable() { return true; }
+
+    @Override
+    public boolean canBeCollidedWith() { return true; }
+
+    @Override
+    public boolean isAttackable() { return false; }
 
     @Override
     public boolean isPushable() { return false; }
