@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle with caching
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/libs/*.jar
+            !build/libs/*-sources.jar
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Optional — publish to Modrinth (uncomment and configure secrets to enable)
+      # - name: Publish to Modrinth
+      #   uses: Kir-Antipov/mc-publish@v3
+      #   with:
+      #     modrinth-id: <YOUR_MODRINTH_PROJECT_ID>
+      #     modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+      #     files: build/libs/*.jar
+      #     version: ${{ github.ref_name }}
+      #     game-versions: 1.20.1
+      #     loaders: forge

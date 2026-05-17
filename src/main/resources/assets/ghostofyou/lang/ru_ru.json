@@ -1,0 +1,23 @@
+{
+  "item.ghostofyou.ghost_banisher": "Изгонитель призраков",
+  "item.ghostofyou.ghost_essence": "Эссенция призрака",
+  "block.ghostofyou.memorial_block": "Мемориальный блок",
+
+  "ghostofyou.ghost_banisher.tooltip": "Навсегда изгоняет призрака",
+  "ghostofyou.ghost_banisher.tooltip_shift": "Удерживайте ПКМ на призраке 3 секунды",
+  "ghostofyou.ghost_essence.tooltip": "Призрак %s, жил %d минут(ы), погиб от %s",
+
+  "ghostofyou.command.removed": "Удалено %d призрак(ов).",
+  "ghostofyou.command.list.header": "Призраки в измерении (%d всего):",
+  "ghostofyou.command.list.entry": "  [%s] @ %.1f, %.1f, %.1f",
+  "ghostofyou.command.paused": "Воспроизведение на паузе: %s",
+  "ghostofyou.command.stats.header": "Статистика записи:",
+  "ghostofyou.command.stats.entry": "  %s: %d/%d кадров (%.0f КБ)",
+  "ghostofyou.banish.start": "Активация Изгонителя...",
+  "ghostofyou.banish.success": "Призрак изгнан!",
+  "ghostofyou.banish.cancelled": "Изгнание отменено.",
+
+  "ghostofyou.ghost_spawned": "Ваш призрак воспроизводится в (%d, %d, %d) — %d записанных кадров.",
+
+  "itemGroup.ghostofyou": "Ghost of You"
+}

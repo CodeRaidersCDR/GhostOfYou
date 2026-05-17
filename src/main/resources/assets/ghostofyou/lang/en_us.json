@@ -1,0 +1,23 @@
+{
+  "item.ghostofyou.ghost_banisher": "Ghost Banisher",
+  "item.ghostofyou.ghost_essence": "Ghost Essence",
+  "block.ghostofyou.memorial_block": "Memorial Block",
+
+  "ghostofyou.ghost_banisher.tooltip": "Permanently dispels a ghost",
+  "ghostofyou.ghost_banisher.tooltip_shift": "Hold right-click on a ghost for 3 seconds",
+  "ghostofyou.ghost_essence.tooltip": "Ghost of %s, lived %d minutes, died of %s",
+
+  "ghostofyou.command.removed": "Removed %d ghost(s).",
+  "ghostofyou.command.list.header": "Ghosts in this dimension (%d total):",
+  "ghostofyou.command.list.entry": "  [%s] @ %.1f, %.1f, %.1f",
+  "ghostofyou.command.paused": "Playback paused: %s",
+  "ghostofyou.command.stats.header": "Recording stats:",
+  "ghostofyou.command.stats.entry": "  %s: %d/%d frames (%.0f KB)",
+  "ghostofyou.banish.start": "Channeling Ghost Banisher...",
+  "ghostofyou.banish.success": "Ghost banished!",
+  "ghostofyou.banish.cancelled": "Banishing cancelled.",
+
+  "ghostofyou.ghost_spawned": "Your ghost is replaying at (%d, %d, %d) — %d frames recorded.",
+
+  "itemGroup.ghostofyou": "Ghost of You"
+}

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "...",
+    ".G.",
+    "SSS"
+  ],
+  "key": {
+    "G": { "item": "ghostofyou:ghost_essence" },
+    "S": { "item": "minecraft:stone" }
+  },
+  "result": {
+    "item": "ghostofyou:memorial_block",
+    "count": 1
+  }
+}

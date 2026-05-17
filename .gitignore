@@ -1,0 +1,30 @@
+# Build outputs
+/build/
+/out/
+
+# Eclipse/IntelliJ
+.classpath
+.project
+.settings/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Gradle
+.gradle/
+gradle.properties.bak
+
+# Run directories
+/run/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Forge MDK
+/eclipse/
+/runs/
+
+# Generated sources  
+/src/generated/

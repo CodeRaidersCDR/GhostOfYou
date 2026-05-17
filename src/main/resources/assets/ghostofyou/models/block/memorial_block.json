@@ -1,0 +1,6 @@
+{
+  "parent": "block/cube_all",
+  "textures": {
+    "all": "ghostofyou:block/memorial_block"
+  }
+}

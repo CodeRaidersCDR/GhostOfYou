@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    ".E.",
+    "SAS",
+    ".R."
+  ],
+  "key": {
+    "E": { "item": "minecraft:ender_eye" },
+    "A": { "item": "minecraft:amethyst_shard" },
+    "S": { "item": "minecraft:soul_sand" },
+    "R": { "item": "minecraft:blaze_rod" }
+  },
+  "result": {
+    "item": "ghostofyou:ghost_banisher",
+    "count": 1
+  }
+}
