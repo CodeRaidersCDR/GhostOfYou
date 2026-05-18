@@ -89,6 +89,9 @@ public class GhostEntity extends Monster {
 
     /** Counts ticks since banishment death animation began (0 = not dying). */
     private int dyingTicks = 0;
+    /** True when dying due to loop end (reset instead of discard). */
+    private boolean loopDeath = false;
+
 
     /** Set to true when triggerEndOfPlaybackDeath() is called to allow kill() through. */
     private transient boolean dyingState = false;
@@ -203,7 +206,19 @@ public class GhostEntity extends Monster {
                         3, 0.3, 0.3, 0.3, 0.02);
             }
             if (dyingTicks >= DEATH_ANIMATION_DURATION) {
+            if (loopDeath) {
+                // Loop death: reset playback and restart animation
+                loopDeath = false;
+                dyingTicks = 0;
+                this.entityData.set(DATA_DYING_TICKS, 0);
+                this.setNoGravity(true);
+                if (playbackController != null) {
+                    playbackController.reset(this);
+                }
+                ModLogger.PLAYBACK.info("Ghost[{}] loop death animation complete, restarting playback.", getOwnerName());
+            } else {
                 this.discard();
+            }
             }
             return;
         }
@@ -273,6 +288,17 @@ public class GhostEntity extends Monster {
         if (dyingTicks > 0) return; // already dying
         this.dyingTicks = 1;
         this.playbackController = null;     // stop playback immediately
+        this.entityData.set(DATA_DYING_TICKS, 1);
+    }
+
+    /**
+     * Begin the loop death animation: ghost tilts+fades for DEATH_ANIMATION_DURATION
+     * ticks, then resets to the start of its recording and loops again.
+     */
+    public void startLoopDeathAnimation() {
+        if (dyingTicks > 0) return; // already dying
+        this.loopDeath = true;
+        this.dyingTicks = 1;
         this.entityData.set(DATA_DYING_TICKS, 1);
     }
 

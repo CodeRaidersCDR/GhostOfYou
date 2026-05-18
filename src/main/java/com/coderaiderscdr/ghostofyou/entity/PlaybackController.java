@@ -22,9 +22,6 @@ import java.util.zip.GZIPOutputStream;
  */
 public class PlaybackController {
 
-    /** Ticks to wait at the death position before restarting the loop. */
-    private static final int LOOP_DELAY_TICKS = 60;
-
     /** Read-only heap buffer wrapping the serialised frame bytes. */
     private final ByteBuffer frames;
     private final int frameCount;
@@ -49,8 +46,8 @@ public class PlaybackController {
     private double frameStartX, frameStartY, frameStartZ;
     private double frameTargetX, frameTargetY, frameTargetZ;
 
-    /** Ticks waited since last loop reset. */
-    private int loopDelayCounter = 0;
+    /** True once end-of-recording animation is triggered; cleared on reset. */
+    private boolean playbackComplete = false;
 
     /**
      * Create a controller from raw, ordered frame bytes.
@@ -61,6 +58,36 @@ public class PlaybackController {
      * @param deathZ        absolute Z coordinate where the player died
      */
     public PlaybackController(byte[] rawFrameBytes, double deathX, double deathY, double deathZ) {
+        // --- Trim to the last 10 seconds (200 ticks) with meaningful movement ---
+        final int MIN_TICKS = 60;           // 3 s minimum window
+        final int MAX_TICKS = 200;          // 10 s hard cap
+        final double MIN_PATH_BLOCKS = 0.5; // require some movement
+        int incomingFrames = rawFrameBytes.length / Frame.BYTES;
+        if (incomingFrames > 1) {
+            java.nio.ByteBuffer scan = java.nio.ByteBuffer.wrap(rawFrameBytes);
+            int tickAcc = 0; double pathLength = 0.0; int firstFrame = incomingFrames;
+            while (firstFrame > 0) {
+                firstFrame--;
+                tickAcc += Math.max(1, (int) Frame.readTickDelta(scan, firstFrame));
+                float fdx = Frame.readDeltaX(scan, firstFrame);
+                float fdy = Frame.readDeltaY(scan, firstFrame);
+                float fdz = Frame.readDeltaZ(scan, firstFrame);
+                pathLength += Math.sqrt((double)fdx*fdx + (double)fdy*fdy + (double)fdz*fdz);
+                if (tickAcc >= MIN_TICKS && pathLength >= MIN_PATH_BLOCKS) break;
+                if (tickAcc >= MAX_TICKS) break;
+            }
+            if (firstFrame > 0) {
+                int keptFrames = incomingFrames - firstFrame;
+                byte[] trimmed = new byte[keptFrames * Frame.BYTES];
+                System.arraycopy(rawFrameBytes, firstFrame * Frame.BYTES, trimmed, 0, trimmed.length);
+                ModLogger.PLAYBACK.debug("Trimmed recording: {} -> {} frames ({} ticks, path={} blocks)",
+                        incomingFrames, keptFrames, tickAcc, Math.round(pathLength * 10.0) / 10.0);
+                rawFrameBytes = trimmed;
+            } else {
+                ModLogger.PLAYBACK.debug("Using full recording: {} frames ({} ticks, path={} blocks)",
+                        incomingFrames, tickAcc, Math.round(pathLength * 10.0) / 10.0);
+            }
+        }
         if (rawFrameBytes.length < Frame.BYTES * 2) {
             byte[] padded = new byte[Frame.BYTES * 2];
             if (rawFrameBytes.length >= Frame.BYTES) {
@@ -142,16 +169,12 @@ public class PlaybackController {
         if (frameCount == 0) return;
 
         if (currentFrame >= frameCount) {
-            // Reached end of recording. Pause briefly at the death position, then loop.
-            loopDelayCounter++;
-            if (loopDelayCounter == 1) {
-                ModLogger.PLAYBACK.info("Ghost[{}] reached end of recording ({} frames). Waiting {} ticks before loop.",
-                        ghost.getOwnerName(), frameCount, LOOP_DELAY_TICKS);
-            }
-            if (loopDelayCounter >= LOOP_DELAY_TICKS) {
-                ModLogger.PLAYBACK.info("Ghost[{}] LOOP RESET — restarting from ({}, {}, {})",
-                        ghost.getOwnerName(), loopStartX, loopStartY, loopStartZ);
-                reset(ghost);
+            // Trigger loop death animation once; playback resumes after it ends.
+            if (!playbackComplete) {
+                playbackComplete = true;
+                ModLogger.PLAYBACK.info("Ghost[{}] reached end of recording ({} frames). Playing loop death animation.",
+                        ghost.getOwnerName(), frameCount);
+                ghost.startLoopDeathAnimation();
             }
             return;
         }
@@ -220,10 +243,10 @@ public class PlaybackController {
         ghost.setRemainingFireTicks(onFire ? 20 : 0);
     }
 
-    private void reset(GhostEntity ghost) {
+    void reset(GhostEntity ghost) {
         currentFrame = loopStartFrame;
         frameTick = 0;
-        loopDelayCounter = 0;
+        playbackComplete = false;
         currentX = loopStartX;
         currentY = loopStartY;
         currentZ = loopStartZ;
@@ -315,3 +338,4 @@ public class PlaybackController {
         return frameCount * Frame.BYTES / 1024f;
     }
 }
+
