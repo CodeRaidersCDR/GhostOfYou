@@ -8,6 +8,8 @@ import com.coderaiderscdr.ghostofyou.event.PlayerDeathHandler;
 import com.coderaiderscdr.ghostofyou.event.PlayerTickHandler;
 import com.coderaiderscdr.ghostofyou.event.ServerTickHandler;
 import com.coderaiderscdr.ghostofyou.item.ModItems;
+import com.coderaiderscdr.ghostofyou.item.ModPotions;
+import com.coderaiderscdr.ghostofyou.loot.ModLootModifiers;
 import com.coderaiderscdr.ghostofyou.network.ModNetwork;
 import com.coderaiderscdr.ghostofyou.sound.ModSounds;
 import net.minecraftforge.common.MinecraftForge;
@@ -34,8 +36,12 @@ public class GhostOfYou {
         ModItems.ITEMS.register(modBus);
         ModBlocks.BLOCKS.register(modBus);
         ModBlocks.BLOCK_ITEMS.register(modBus);
+        ModBlocks.BLOCK_ENTITY_TYPES.register(modBus);
         ModEntities.ENTITY_TYPES.register(modBus);
         ModSounds.SOUNDS.register(modBus);
+        ModPotions.MOB_EFFECTS.register(modBus);
+        ModPotions.POTIONS.register(modBus);
+        ModLootModifiers.LOOT_MODIFIER_SERIALIZERS.register(modBus);
 
         modBus.addListener(this::commonSetup);
 
@@ -51,6 +57,9 @@ public class GhostOfYou {
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
-        event.enqueueWork(ModNetwork::register);
+        event.enqueueWork(() -> {
+            ModNetwork.register();
+            ModPotions.registerBrewingRecipes();
+        });
     }
 }

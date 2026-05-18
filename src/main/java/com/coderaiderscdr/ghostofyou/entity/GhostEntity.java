@@ -5,7 +5,9 @@ import com.coderaiderscdr.ghostofyou.recording.ActionEvent;
 import com.coderaiderscdr.ghostofyou.recording.CircularFrameBuffer;
 import com.coderaiderscdr.ghostofyou.recording.Frame;
 import com.coderaiderscdr.ghostofyou.util.ModLogger;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -53,19 +55,26 @@ public class GhostEntity extends Monster {
 
     private static final EntityDataAccessor<String> DATA_OWNER_NAME =
             SynchedEntityData.defineId(GhostEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<Integer> DATA_DYING_TICKS =
+            SynchedEntityData.defineId(GhostEntity.class, EntityDataSerializers.INT);
 
     // ------------------------------------------------------------------
     // NBT keys
     // ------------------------------------------------------------------
 
-    private static final String NBT_OWNER_UUID    = "OwnerUUID";
-    private static final String NBT_OWNER_NAME    = "OwnerName";
-    private static final String NBT_DEATH_X       = "DeathX";
-    private static final String NBT_DEATH_Y       = "DeathY";
-    private static final String NBT_DEATH_Z       = "DeathZ";
-    private static final String NBT_CREATION_TIME = "CreationTime";
-    private static final String NBT_RECORDING     = "Recording";
-    private static final String NBT_DEATH_CAUSE   = "DeathCause";
+    private static final String NBT_OWNER_UUID         = "OwnerUUID";
+    private static final String NBT_OWNER_NAME         = "OwnerName";
+    private static final String NBT_DEATH_X            = "DeathX";
+    private static final String NBT_DEATH_Y            = "DeathY";
+    private static final String NBT_DEATH_Z            = "DeathZ";
+    private static final String NBT_CREATION_TIME      = "CreationTime";
+    private static final String NBT_RECORDING          = "Recording";
+    private static final String NBT_DEATH_CAUSE        = "DeathCause";
+    private static final String NBT_KILLER_NAME        = "KillerName";
+    private static final String NBT_PLAYER_FIRST_LOGIN = "PlayerFirstLoginTime";
+
+    /** Duration of the banishment death animation in ticks (2 s). */
+    public static final int DEATH_ANIMATION_DURATION = 40;
 
     // ------------------------------------------------------------------
     // Fields
@@ -75,6 +84,11 @@ public class GhostEntity extends Monster {
     private double deathX, deathY, deathZ;
     private long   creationTime;
     private String deathCauseKey = "unknown";
+    private String killerName = "";
+    private long   playerFirstLoginTime = 0L;
+
+    /** Counts ticks since banishment death animation began (0 = not dying). */
+    private int dyingTicks = 0;
 
     /** Set to true when triggerEndOfPlaybackDeath() is called to allow kill() through. */
     private transient boolean dyingState = false;
@@ -117,6 +131,7 @@ public class GhostEntity extends Monster {
     protected void defineSynchedData() {
         super.defineSynchedData();
         this.entityData.define(DATA_OWNER_NAME, "");
+        this.entityData.define(DATA_DYING_TICKS, 0);
     }
 
     // ------------------------------------------------------------------
@@ -176,12 +191,24 @@ public class GhostEntity extends Monster {
     @Override
     public void tick() {
         super.tick();
-
-        // Block gravity every tick (in case external code re-enables it)
         this.setNoGravity(true);
 
-        // Playback is driven externally by ServerTickHandler.tickPlayback(stride).
-        // Walk animation is updated here so it stays current every render tick.
+        // Banishment death animation — runs until DEATH_ANIMATION_DURATION ticks
+        if (dyingTicks > 0) {
+            dyingTicks++;
+            this.entityData.set(DATA_DYING_TICKS, dyingTicks);
+            if (!level().isClientSide() && level() instanceof ServerLevel sl) {
+                sl.sendParticles(ParticleTypes.SOUL,
+                        getX(), getY() + 1.0, getZ(),
+                        3, 0.3, 0.3, 0.3, 0.02);
+            }
+            if (dyingTicks >= DEATH_ANIMATION_DURATION) {
+                this.discard();
+            }
+            return;
+        }
+
+        // Normal: update walk animation (driven by playback deltas).
         Vec3 delta = this.getDeltaMovement();
         float horizontalSpeed = (float) Math.sqrt(delta.x * delta.x + delta.z * delta.z);
         float animSpeed = Math.min(1.0f, horizontalSpeed * 4.0f);
@@ -236,6 +263,40 @@ public class GhostEntity extends Monster {
         if (!this.isAlive()) return;
         this.dyingState = true;
         this.kill(); // hurt(genericKill, MAX_FLOAT) → die() → 20-tick death anim
+    }
+
+    /**
+     * Begin the banishment death animation: stops playback, emits soul particles
+     * every tick for {@link #DEATH_ANIMATION_DURATION} ticks, then discards.
+     */
+    public void startBanishmentDeath() {
+        if (dyingTicks > 0) return; // already dying
+        this.dyingTicks = 1;
+        this.playbackController = null;     // stop playback immediately
+        this.entityData.set(DATA_DYING_TICKS, 1);
+    }
+
+    /** Whether this ghost is currently playing its banishment death animation. */
+    public boolean isDying() { return entityData.get(DATA_DYING_TICKS) > 0; }
+
+    /** Returns a value in [0, 1] representing animation progress (0 = just started, 1 = finished). */
+    public float getDyingProgress() {
+        int ticks = entityData.get(DATA_DYING_TICKS);
+        return Math.min(1.0f, ticks / (float) DEATH_ANIMATION_DURATION);
+    }
+
+    /**
+     * Store death context so Ghost Essence created from this ghost carries
+     * meaningful tooltip data.
+     *
+     * @param cause       damage-source message id (e.g. {@code "creeper"})
+     * @param killer      name of the entity that delivered the killing blow
+     * @param currentTick current game time (used to compute rough login time)
+     */
+    public void setDeathContext(String cause, String killer, long currentTick) {
+        this.deathCauseKey = cause;
+        this.killerName    = killer;
+        this.playerFirstLoginTime = currentTick - (currentTick % 24000); // start of current in-game day
     }
 
     // ------------------------------------------------------------------
@@ -307,7 +368,9 @@ public class GhostEntity extends Monster {
         if (playbackController != null) {
             tag.put(NBT_RECORDING, playbackController.saveToNbt(deathX, deathY, deathZ));
         }
-        tag.putString(NBT_DEATH_CAUSE, deathCauseKey);
+        tag.putString(NBT_DEATH_CAUSE,        deathCauseKey);
+        tag.putString(NBT_KILLER_NAME,          killerName);
+        tag.putLong  (NBT_PLAYER_FIRST_LOGIN,   playerFirstLoginTime);
     }
 
     @Override
@@ -330,9 +393,9 @@ public class GhostEntity extends Monster {
             double[] start = playbackController.getStartPosition();
             this.setPos(start[0], start[1], start[2]);
         }
-        if (tag.contains(NBT_DEATH_CAUSE)) {
-            this.deathCauseKey = tag.getString(NBT_DEATH_CAUSE);
-        }
+        if (tag.contains(NBT_DEATH_CAUSE))       this.deathCauseKey        = tag.getString(NBT_DEATH_CAUSE);
+        if (tag.contains(NBT_KILLER_NAME))        this.killerName           = tag.getString(NBT_KILLER_NAME);
+        if (tag.contains(NBT_PLAYER_FIRST_LOGIN)) this.playerFirstLoginTime = tag.getLong(NBT_PLAYER_FIRST_LOGIN);
     }
 
     @Override
@@ -358,9 +421,11 @@ public class GhostEntity extends Monster {
 
     public long getCreationTime() { return creationTime; }
 
-    /** Translation key for the cause of this ghost's original death (e.g. {@code "death.attack.fall"}). */
+    /** Damage-source message ID for the original death (e.g. {@code "fall"}, {@code "creeper"}). */
     public String getDeathCauseKey() { return deathCauseKey; }
     public void   setDeathCauseKey(String key) { this.deathCauseKey = key; }
+    public String getKillerName() { return killerName; }
+    public long   getPlayerFirstLoginTime() { return playerFirstLoginTime; }
 
     @Nullable public PlaybackController getPlaybackController() { return playbackController; }
 

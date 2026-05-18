@@ -1,0 +1,14 @@
+{
+  "replace": false,
+  "entries": [
+    "ghostofyou:add_ghost_essence_to_dungeon",
+    "ghostofyou:add_ghost_essence_to_stronghold_corridor",
+    "ghostofyou:add_ghost_essence_to_stronghold_crossing",
+    "ghostofyou:add_ghost_essence_to_mineshaft",
+    "ghostofyou:add_ghost_essence_to_woodland_mansion",
+    "ghostofyou:add_ghost_essence_to_ancient_city",
+    "ghostofyou:add_ghost_essence_to_bastion_treasure",
+    "ghostofyou:add_ghost_essence_to_end_city_treasure",
+    "ghostofyou:add_ghost_essence_to_buried_treasure"
+  ]
+}

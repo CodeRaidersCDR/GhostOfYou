@@ -1,10 +1,18 @@
 package com.coderaiderscdr.ghostofyou.entity;
 
+import com.coderaiderscdr.ghostofyou.event.ServerTickHandler;
 import com.coderaiderscdr.ghostofyou.sound.ModSounds;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.nbt.CompoundTag;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
@@ -67,7 +75,7 @@ public final class GhostInteraction {
     }
 
     /**
-     * Complete a banishing: remove the ghost, drop essence, damage item.
+     * Complete a banishing: start death animation, schedule essence drop, play effect.
      *
      * @param player     the player
      * @param stack      the Ghost Banisher item stack
@@ -76,37 +84,114 @@ public final class GhostInteraction {
         UUID ghostId = activeBanishings.remove(player.getUUID());
         if (ghostId == null) return;
 
-        if (player.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-            net.minecraft.world.entity.Entity entity = sl.getEntity(ghostId);
-            if (entity instanceof GhostEntity ghost && ghost.isAlive()) {
-                // Drop Ghost Essence
-                net.minecraft.world.item.ItemStack essence =
-                        new net.minecraft.world.item.ItemStack(
-                                com.coderaiderscdr.ghostofyou.item.ModItems.GHOST_ESSENCE.get());
-                // Write ghost metadata into NBT
-                net.minecraft.nbt.CompoundTag meta = new net.minecraft.nbt.CompoundTag();
-                meta.putString("ghostName",        ghost.getOwnerName());
-                meta.putString("deathCauseKey",    ghost.getDeathCauseKey());
-                long lifespan = (sl.getGameTime() - ghost.getCreationTime()) / 1200L; // minutes
-                meta.putLong  ("lifespanMinutes",  lifespan);
-                essence.setTag(meta);
+        if (!(player.level() instanceof ServerLevel sl)) return;
+        net.minecraft.world.entity.Entity entity = sl.getEntity(ghostId);
+        if (!(entity instanceof GhostEntity ghost) || !ghost.isAlive()) return;
 
-                ghost.spawnAtLocation(essence);
-                ghost.discard();
+        // Snapshot all ghost data before the entity is dismissed
+        final String ownerName    = ghost.getOwnerName();
+        final String deathCause   = ghost.getDeathCauseKey();
+        final String killerName   = ghost.getKillerName();
+        final long   livedMinutes = Math.max(0,
+                (sl.getGameTime() - ghost.getPlayerFirstLoginTime()) / 1200L);
+        final long   banishedAt   = sl.getGameTime();
+        final double gx = ghost.getX(), gy = ghost.getY(), gz = ghost.getZ();
 
-                player.displayClientMessage(
-                        net.minecraft.network.chat.Component.translatable("ghostofyou.banish.success"),
-                        true);
+        // Kick off the banishment death animation (stops playback, soul particles each tick)
+        ghost.startBanishmentDeath();
 
-                // Damage the banisher
-                if (!player.isCreative()) {
-                    stack.hurtAndBreak(1, player,
-                            p -> p.broadcastBreakEvent(player.getUsedItemHand()));
-                }
+        // Phase 1 particles + sounds happen immediately
+        playBanishmentPhase1(sl, gx, gy, gz);
 
-                // Apply 5-second cooldown (100 ticks) so the banisher can't be used immediately
-                player.getCooldowns().addCooldown(stack.getItem(), 100);
+        // Phase 2 (end-rod beacon column) follows 10 ticks later
+        ServerTickHandler.scheduleDelayed(sl.getServer(), 10,
+                () -> playBanishmentPhase2(sl, gx, gy, gz));
+
+        // Essence drop + player reward execute after the full death animation
+        final ItemStack essenceStack = buildEssenceStack(
+                ownerName, deathCause, killerName, livedMinutes, banishedAt);
+        ServerTickHandler.scheduleDelayed(sl.getServer(),
+                GhostEntity.DEATH_ANIMATION_DURATION + 2, () -> {
+            sl.addFreshEntity(new ItemEntity(sl, gx, gy, gz, essenceStack));
+            player.displayClientMessage(
+                    net.minecraft.network.chat.Component.translatable("ghostofyou.banish.success"),
+                    true);
+            if (!player.isCreative()) {
+                stack.hurtAndBreak(1, player,
+                        p -> p.broadcastBreakEvent(player.getUsedItemHand()));
             }
+            player.getCooldowns().addCooldown(stack.getItem(), 100);
+        });
+    }
+
+    private static ItemStack buildEssenceStack(String ownerName, String deathCause,
+                                               String killerName, long livedMinutes,
+                                               long banishedAt) {
+        ItemStack essence = new ItemStack(
+                com.coderaiderscdr.ghostofyou.item.ModItems.GHOST_ESSENCE.get());
+        CompoundTag tag = essence.getOrCreateTag();
+        tag.putString("OwnerName",    ownerName);
+        tag.putString("DeathCause",   deathCause.isEmpty() ? "unknown" : deathCause);
+        tag.putString("KillerName",   killerName);
+        tag.putLong  ("LivedMinutes", livedMinutes);
+        tag.putLong  ("BanishedAt",   banishedAt);
+        return essence;
+    }
+
+    // ------------------------------------------------------------------
+    // Banishment visual effect
+    // ------------------------------------------------------------------
+
+    /** Phase 1: soul-fire spiral + imploding sphere + lightning bolt + layered sounds. */
+    private static void playBanishmentPhase1(ServerLevel level, double x, double y, double z) {
+        // Spiral of soul-fire flames rising upward
+        for (int i = 0; i < 80; i++) {
+            double angle  = i * 0.3;
+            double radius = 0.5 + i * 0.02;
+            double dx = Math.cos(angle) * radius;
+            double dz = Math.sin(angle) * radius;
+            double dy = i * 0.03;
+            level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME,
+                    x + dx, y + dy, z + dz, 1, 0, 0, 0, 0.0);
+        }
+
+        // Inward-collapsing sphere of soul particles
+        for (int i = 0; i < 60; i++) {
+            double theta = Math.random() * 2 * Math.PI;
+            double phi   = Math.random() * Math.PI;
+            double r     = 2.0;
+            double dx    = r * Math.sin(phi) * Math.cos(theta);
+            double dy    = r * Math.cos(phi) + 1.0;
+            double dz    = r * Math.sin(phi) * Math.sin(theta);
+            level.sendParticles(ParticleTypes.SOUL,
+                    x + dx, y + dy, z + dz,
+                    1, -dx * 0.1, -dy * 0.1, -dz * 0.1, 0.05);
+        }
+
+        // Visual lightning bolt (no fire / damage)
+        LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(level);
+        if (lightning != null) {
+            lightning.moveTo(x, y, z);
+            lightning.setVisualOnly(true);
+            level.addFreshEntity(lightning);
+        }
+
+        // Layered sounds: wither death + wither moan + thunder + beacon off
+        level.playSound(null, x, y, z, SoundEvents.WITHER_DEATH,
+                SoundSource.HOSTILE, 0.6f, 1.3f);
+        level.playSound(null, x, y, z, SoundEvents.WITHER_AMBIENT,
+                SoundSource.HOSTILE, 1.0f, 0.7f);
+        level.playSound(null, x, y, z, SoundEvents.LIGHTNING_BOLT_THUNDER,
+                SoundSource.WEATHER,  0.4f, 1.5f);
+        level.playSound(null, x, y, z, SoundEvents.BEACON_DEACTIVATE,
+                SoundSource.HOSTILE, 1.2f, 0.6f);
+    }
+
+    /** Phase 2: vertical end-rod column (soul beam rising to sky). */
+    private static void playBanishmentPhase2(ServerLevel level, double x, double y, double z) {
+        for (int i = 0; i < 30; i++) {
+            level.sendParticles(ParticleTypes.END_ROD,
+                    x, y + i * 0.3, z, 1, 0.05, 0, 0.05, 0.0);
         }
     }
 

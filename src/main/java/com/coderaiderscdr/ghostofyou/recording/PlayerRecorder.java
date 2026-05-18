@@ -44,8 +44,15 @@ public class PlayerRecorder {
         int capacity       = Math.max(1, durationSec * 20 / sampleInterval);
         this.frameBuffer   = new CircularFrameBuffer(capacity);
         this.eventLog      = new ActionEventLog();
-        this.initialized   = false;
+        this.initialized   = false;          // forces re-init on next captureFrame
         this.tickSinceLastFrame = 0;
+        // Explicitly reset delta-state to current player position so the first
+        // frame after respawn doesn't accumulate a stale dead-position delta.
+        this.prevX    = player.getX();
+        this.prevY    = player.getY();
+        this.prevZ    = player.getZ();
+        this.prevYaw   = player.getYRot();
+        this.prevPitch = player.getXRot();
         this.lastSafeX = player.getX();
         this.lastSafeY = player.getY();
         this.lastSafeZ = player.getZ();

@@ -4,6 +4,7 @@ import com.coderaiderscdr.ghostofyou.GhostOfYou;
 import com.coderaiderscdr.ghostofyou.config.ConfigManager;
 import com.coderaiderscdr.ghostofyou.entity.GhostEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
@@ -45,10 +46,25 @@ public class GhostEntityRenderer extends LivingEntityRenderer<GhostEntity, Playe
             return;
         }
 
-        float alpha = ConfigManager.ghostTransparency();
+        if (entity.isDying()) {
+            float progress  = entity.getDyingProgress();
+            final float dyingAlpha = ConfigManager.ghostTransparency() * (1.0f - progress);
+            if (dyingAlpha < 0.005f) return;
+
+            poseStack.pushPose();
+            poseStack.translate(0.0, -progress * 0.5, 0.0);
+            poseStack.mulPose(Axis.XP.rotationDegrees(progress * 90f));
+
+            MultiBufferSource dyingSource = renderType ->
+                    new AlphaVertexConsumer(bufferSource.getBuffer(renderType), dyingAlpha);
+            super.render(entity, entityYaw, partialTick, poseStack, dyingSource, packedLight);
+            poseStack.popPose();
+            return;
+        }
+
+        final float alpha = ConfigManager.ghostTransparency();
         MultiBufferSource alphaSource = renderType ->
                 new AlphaVertexConsumer(bufferSource.getBuffer(renderType), alpha);
-
         super.render(entity, entityYaw, partialTick, poseStack, alphaSource, packedLight);
     }
 

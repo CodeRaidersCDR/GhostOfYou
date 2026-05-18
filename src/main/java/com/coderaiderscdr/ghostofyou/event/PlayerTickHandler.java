@@ -42,6 +42,29 @@ public class PlayerTickHandler {
         RECORDERS.remove(event.getEntity().getUUID());
     }
 
+    /**
+     * On death-respawn the old ServerPlayer instance is discarded and a new one
+     * is created. Replace the recorder with a fresh one pointing to the new instance
+     * so {@code player.getX()} always returns the LIVE position, not the corpse pos.
+     */
+    @SubscribeEvent
+    public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        if (event.getEntity() instanceof ServerPlayer newPlayer) {
+            RECORDERS.put(newPlayer.getUUID(), new PlayerRecorder(newPlayer));
+        }
+    }
+
+    /**
+     * On dimension change (not death) the player entity is also replaced.
+     * Swap the recorder reference so deltas continue to be correct.
+     */
+    @SubscribeEvent
+    public static void onPlayerClone(PlayerEvent.Clone event) {
+        if (!event.isWasDeath() && event.getEntity() instanceof ServerPlayer newPlayer) {
+            RECORDERS.put(newPlayer.getUUID(), new PlayerRecorder(newPlayer));
+        }
+    }
+
     // ------------------------------------------------------------------
     // Tick
     // ------------------------------------------------------------------

@@ -10,22 +10,32 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.server.ServerLifecycleHooks;
 
+import java.util.ArrayDeque;
+import java.util.Queue;
+
 /**
- * Drives ghost playback with LOD-based tick scheduling.
- *
- * <p>LOD zones per config (default):
- * <ul>
- *   <li>&lt; 32 blocks from any player — tick every game tick</li>
- *   <li>32 – 64 blocks — tick every 4 ticks</li>
- *   <li>64 – 128 blocks — tick every 10 ticks</li>
- *   <li>&gt; 128 blocks — frozen (no tick, render only)</li>
- * </ul>
- *
- * Ghosts in unloaded chunks are skipped entirely.
+ * Drives ghost playback with LOD-based tick scheduling and processes
+ * server-side delayed effects scheduled via {@link #scheduleDelayed}.
  */
 public class ServerTickHandler {
 
     private ServerTickHandler() {}
+
+    // ------------------------------------------------------------------
+    // Delayed task queue
+    // ------------------------------------------------------------------
+
+    private record DelayedTask(long fireTick, Runnable action) {}
+    private static final Queue<DelayedTask> DELAYED_TASKS = new ArrayDeque<>();
+
+    /**
+     * Schedule a {@code Runnable} to run on the server thread after
+     * {@code delayTicks} server ticks have elapsed.
+     */
+    public static void scheduleDelayed(MinecraftServer server, int delayTicks, Runnable action) {
+        if (server == null) return;
+        DELAYED_TASKS.add(new DelayedTask((long) server.getTickCount() + delayTicks, action));
+    }
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
@@ -33,6 +43,19 @@ public class ServerTickHandler {
 
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         if (server == null) return;
+
+        // Process scheduled delayed tasks first
+        if (!DELAYED_TASKS.isEmpty()) {
+            long now = server.getTickCount();
+            DELAYED_TASKS.removeIf(task -> {
+                if (task.fireTick() <= now) {
+                    try { task.action().run(); } catch (Exception ignored) {}
+                    return true;
+                }
+                return false;
+            });
+        }
+
         if (ConfigManager.isPlaybackPaused()) return;
 
         boolean profiling = ConfigManager.enablePerformanceProfiler();

@@ -7,6 +7,18 @@
   "ghostofyou.ghost_banisher.tooltip_shift": "Hold right-click on a ghost for 3 seconds",
   "ghostofyou.ghost_essence.tooltip": "Ghost of %s, lived %d minutes, died of %s",
 
+  "item.ghostofyou.essence.owner": "Owner: %s",
+  "item.ghostofyou.essence.lived": "Ghost lifetime: %d min",
+  "item.ghostofyou.essence.died":  "Died from: %s",
+  "item.ghostofyou.ghost_banisher.recipe.tooltip": "Created by combining ghast tears, ghost essence, and a blaze rod.",
+
+  "block.ghostofyou.memorial_block.unbound": "[Memorial] — Not yet bound to any ghost essence.",
+  "block.ghostofyou.memorial_block.status":  "[Memorial of %s] — Lived %d minutes, banished %d days ago.",
+  "block.ghostofyou.memorial_block.bound":   "Memorial bound to the ghost of %s.",
+
+  "effect.ghostofyou.ethereal_form": "Ethereal Form",
+  "item.minecraft.potion.effect.ghostofyou.ethereal_form": "Potion of Ethereal Form",
+
   "ghostofyou.command.removed": "Removed %d ghost(s).",
   "ghostofyou.command.list.header": "Ghosts in this dimension (%d total):",
   "ghostofyou.command.list.entry": "  [%s] @ %.1f, %.1f, %.1f",
