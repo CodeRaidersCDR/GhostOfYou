@@ -350,13 +350,14 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
         }
 
         // Walk animation (zero out during death/respawn)
+        float dh = 0f;
         if (t < pb.totalTicks) {
-            float dh = Math.abs(frameIndex > 0 ? pb.relX[frameIndex] - pb.relX[frameIndex - 1] : 0f)
-                     + Math.abs(frameIndex > 0 ? pb.relZ[frameIndex] - pb.relZ[frameIndex - 1] : 0f);
+            dh = Math.abs(frameIndex > 0 ? pb.relX[frameIndex] - pb.relX[frameIndex - 1] : 0f)
+               + Math.abs(frameIndex > 0 ? pb.relZ[frameIndex] - pb.relZ[frameIndex - 1] : 0f);
             state.walkDistance += dh * 15f;
         }
         float limbSwing       = state.walkDistance;
-        float limbSwingAmount = (t < pb.totalTicks) ? Math.min(1.0f, 0f) : 0f;
+        float limbSwingAmount = (t < pb.totalTicks) ? Math.min(1.0f, dh * 20f) : 0f;
 
         // Pose
         ghostModel.crouching = (ghostFlags & Frame.FLAG_SNEAK) != 0;

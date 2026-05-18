@@ -101,10 +101,10 @@ public class SoulCrystalEntity extends Entity {
     // ------------------------------------------------------------------
 
     @Override
-    public boolean isPickable() { return true; }
+    public boolean isPickable() { return false; }
 
     @Override
-    public boolean canBeCollidedWith() { return true; }
+    public boolean canBeCollidedWith() { return false; }
 
     @Override
     public boolean isAttackable() { return false; }
