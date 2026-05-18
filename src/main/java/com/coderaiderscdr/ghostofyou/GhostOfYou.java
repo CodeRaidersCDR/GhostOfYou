@@ -34,6 +34,7 @@ public class GhostOfYou {
         ModConfig.register(ModLoadingContext.get());
 
         ModItems.ITEMS.register(modBus);
+        ModItems.CREATIVE_MODE_TABS.register(modBus);
         ModBlocks.BLOCKS.register(modBus);
         ModBlocks.BLOCK_ITEMS.register(modBus);
         ModBlocks.BLOCK_ENTITY_TYPES.register(modBus);

@@ -1,6 +1,7 @@
 package com.coderaiderscdr.ghostofyou.item;
 
 import com.coderaiderscdr.ghostofyou.GhostOfYou;
+import com.coderaiderscdr.ghostofyou.block.ModBlocks;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
@@ -19,6 +20,9 @@ public class ModItems {
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(ForgeRegistries.ITEMS, GhostOfYou.MOD_ID);
 
+    public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
+            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, GhostOfYou.MOD_ID);
+
     /** Ghost Banisher — crafted weapon to permanently remove ghost entities. */
     public static final RegistryObject<Item> GHOST_BANISHER =
             ITEMS.register("ghost_banisher",
@@ -32,4 +36,15 @@ public class ModItems {
             ITEMS.register("ghost_essence",
                     () -> new GhostEssenceItem(new Item.Properties()
                             .stacksTo(16)));
+
+    public static final RegistryObject<CreativeModeTab> GHOST_OF_YOU_TAB =
+            CREATIVE_MODE_TABS.register("ghost_of_you", () -> CreativeModeTab.builder()
+                    .title(Component.translatable("itemGroup.ghostofyou"))
+                    .icon(() -> new ItemStack(GHOST_ESSENCE.get()))
+                    .displayItems((params, output) -> {
+                        output.accept(GHOST_ESSENCE.get());
+                        output.accept(GHOST_BANISHER.get());
+                        output.accept(ModBlocks.MEMORIAL_BLOCK_ITEM.get());
+                    })
+                    .build());
 }

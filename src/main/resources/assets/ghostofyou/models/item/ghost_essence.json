@@ -1,6 +1,6 @@
 {
   "parent": "item/generated",
   "textures": {
-    "layer0": "ghostofyou:item/ghost_essence_python_16x16"
+    "layer0": "ghostofyou:item/ghost_essence"
   }
 }
