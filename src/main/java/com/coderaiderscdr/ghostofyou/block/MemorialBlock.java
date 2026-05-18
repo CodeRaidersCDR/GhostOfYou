@@ -73,6 +73,7 @@ public class MemorialBlock extends BaseEntityBlock {
             // Bind the memorial to this essence
             if (memorial.bindToEssence(held)) {
                 if (!player.isCreative()) held.shrink(1);
+                level.sendBlockUpdated(pos, state, state, 3);
                 player.displayClientMessage(
                         net.minecraft.network.chat.Component.translatable(
                                 "block.ghostofyou.memorial_block.bound",

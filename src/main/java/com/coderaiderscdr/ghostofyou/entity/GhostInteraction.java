@@ -96,6 +96,9 @@ public final class GhostInteraction {
                 (sl.getGameTime() - ghost.getPlayerFirstLoginTime()) / 1200L);
         final long   banishedAt   = sl.getGameTime();
         final double gx = ghost.getX(), gy = ghost.getY(), gz = ghost.getZ();
+        // Capture recording before startBanishmentDeath() nulls the playbackController
+        final PlaybackController pc__ = ghost.getPlaybackController();
+        final net.minecraft.nbt.CompoundTag recordingNbt = (pc__ != null) ? pc__.saveToNbt(gx, gy, gz) : null;
 
         // Kick off the banishment death animation (stops playback, soul particles each tick)
         ghost.startBanishmentDeath();
@@ -109,7 +112,7 @@ public final class GhostInteraction {
 
         // Essence drop + player reward execute after the full death animation
         final ItemStack essenceStack = buildEssenceStack(
-                ownerName, deathCause, killerName, livedMinutes, banishedAt);
+                ownerName, deathCause, killerName, livedMinutes, banishedAt, recordingNbt);
         ServerTickHandler.scheduleDelayed(sl.getServer(),
                 GhostEntity.DEATH_ANIMATION_DURATION + 2, () -> {
             sl.addFreshEntity(new ItemEntity(sl, gx, gy, gz, essenceStack));
@@ -126,7 +129,7 @@ public final class GhostInteraction {
 
     private static ItemStack buildEssenceStack(String ownerName, String deathCause,
                                                String killerName, long livedMinutes,
-                                               long banishedAt) {
+                                               long banishedAt, @org.jetbrains.annotations.Nullable net.minecraft.nbt.CompoundTag recordingNbt) {
         ItemStack essence = new ItemStack(
                 com.coderaiderscdr.ghostofyou.item.ModItems.GHOST_ESSENCE.get());
         CompoundTag tag = essence.getOrCreateTag();
@@ -135,6 +138,9 @@ public final class GhostInteraction {
         tag.putString("KillerName",   killerName);
         tag.putLong  ("LivedMinutes", livedMinutes);
         tag.putLong  ("BanishedAt",   banishedAt);
+        if (recordingNbt != null) {
+            tag.put("Recording", recordingNbt);
+        }
         return essence;
     }
 
