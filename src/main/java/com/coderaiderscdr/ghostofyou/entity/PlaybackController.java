@@ -22,6 +22,9 @@ import java.util.zip.GZIPOutputStream;
  */
 public class PlaybackController {
 
+    /** Ticks to wait at the death position before restarting the loop. */
+    private static final int LOOP_DELAY_TICKS = 60;
+
     /** Read-only heap buffer wrapping the serialised frame bytes. */
     private final ByteBuffer frames;
     private final int frameCount;
@@ -48,9 +51,6 @@ public class PlaybackController {
 
     /** Ticks waited since last loop reset. */
     private int loopDelayCounter = 0;
-
-    /** True after the final frame has been played; prevents repeated death trigger calls. */
-    private boolean playbackComplete = false;
 
     /**
      * Create a controller from raw, ordered frame bytes.
@@ -142,10 +142,16 @@ public class PlaybackController {
         if (frameCount == 0) return;
 
         if (currentFrame >= frameCount) {
-            // Playback has reached the death position — trigger death animation once.
-            if (!playbackComplete) {
-                playbackComplete = true;
-                ghost.triggerEndOfPlaybackDeath();
+            // Reached end of recording. Pause briefly at the death position, then loop.
+            loopDelayCounter++;
+            if (loopDelayCounter == 1) {
+                ModLogger.PLAYBACK.info("Ghost[{}] reached end of recording ({} frames). Waiting {} ticks before loop.",
+                        ghost.getOwnerName(), frameCount, LOOP_DELAY_TICKS);
+            }
+            if (loopDelayCounter >= LOOP_DELAY_TICKS) {
+                ModLogger.PLAYBACK.info("Ghost[{}] LOOP RESET — restarting from ({}, {}, {})",
+                        ghost.getOwnerName(), loopStartX, loopStartY, loopStartZ);
+                reset(ghost);
             }
             return;
         }
