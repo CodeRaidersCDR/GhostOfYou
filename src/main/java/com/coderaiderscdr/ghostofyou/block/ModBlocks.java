@@ -29,7 +29,8 @@ public class ModBlocks {
             BLOCKS.register("memorial_block",
                     () -> new MemorialBlock(Block.Properties.of()
                             .strength(1.5f, 6.0f)
-                            .requiresCorrectToolForDrops()));
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion()));
 
     // Block item (registered separately so it can be placed in the item tab)
     public static final RegistryObject<Item> MEMORIAL_BLOCK_ITEM =

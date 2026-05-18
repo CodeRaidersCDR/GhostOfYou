@@ -1,6 +1,7 @@
 package com.coderaiderscdr.ghostofyou.client.render;
 
 import com.coderaiderscdr.ghostofyou.GhostOfYou;
+import com.coderaiderscdr.ghostofyou.block.MemorialBlock;
 import com.coderaiderscdr.ghostofyou.block.entity.MemorialBlockEntity;
 import com.coderaiderscdr.ghostofyou.entity.GhostEntity;
 import com.coderaiderscdr.ghostofyou.entity.ModEntities;
@@ -8,7 +9,6 @@ import com.coderaiderscdr.ghostofyou.recording.Frame;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.model.PlayerModel;
@@ -19,13 +19,12 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -52,17 +51,31 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
     private static final ResourceLocation GHOST_TEXTURE =
             new ResourceLocation(GhostOfYou.MOD_ID, "textures/entity/ghost.png");
 
-    /** Base scale for the nickname text (MC font units). */
-    private static final float TEXT_BASE_SCALE = 0.018f;
+    /**
+     * Base text scale in block units per font pixel.
+     * 1 font pixel = TEXT_BASE_SCALE block units.
+     * (Minecraft sign renderer uses ~0.010417)
+     */
+    private static final float TEXT_BASE_SCALE = 0.011f;
 
-    /** Maximum font width (MC font units) allowed for the nickname before scaling down. */
-    private static final float TEXT_MAX_WIDTH = 48f;
+    /**
+     * Maximum font width (in font pixels) before the nickname is scaled down.
+     * The stele front face is 10/16 = 0.625 blocks wide;
+     * 0.625 / 0.011 ≈ 56 font pixels.
+     */
+    private static final float TEXT_MAX_WIDTH = 56f;
 
-    /** Height (block-local Y) where the centre of the nick text appears. */
-    private static final float TEXT_Y = 1.05f;
+    /** Block-local Y position for the nickname line. */
+    private static final float TEXT_Y = 0.40f;
 
-    /** Height offset for the cause-of-death text below the nick. */
-    private static final float CAUSE_Y_OFFSET = 0.12f;
+    /** Block-local Y position for the cause-of-death line (below nick). */
+    private static final float CAUSE_Y = 0.26f;
+
+    /**
+     * Z offset from the block origin to the front face of the stele model
+     * (model coord 3/16), pushed 1 mm in front so it doesn't z-fight.
+     */
+    private static final float FACE_Z = 3.0f / 16.0f - 0.001f;
 
     /** Y offset (block-local) for the mini ghost's foot position (= block top + small margin). */
     private static final float GHOST_BASE_Y = 1.0f;
@@ -111,7 +124,7 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
     }
 
     // -----------------------------------------------------------------------
-    // Billboard nick text (+ cause-of-death line)
+    // Sign-style nick text (+ cause-of-death line) on the block's front face
     // -----------------------------------------------------------------------
 
     private void renderNickText(MemorialBlockEntity be, float partialTick,
@@ -121,49 +134,66 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
         String owner = be.getBoundOwner();
         if (owner.isEmpty()) return;
 
-        // Scale down for long names
+        // Rotate coordinate system to match block's FACING so the text
+        // ends up on whichever face the block is oriented towards.
+        BlockState state = be.getBlockState();
+        Direction facing = state.hasProperty(MemorialBlock.FACING)
+                ? state.getValue(MemorialBlock.FACING) : Direction.NORTH;
+        float facingYRot = switch (facing) {
+            case SOUTH -> 180f;
+            case WEST  -> 270f;
+            case EAST  ->  90f;
+            default    ->   0f;  // NORTH = no rotation
+        };
+
+        poseStack.pushPose();
+        // Rotate around block centre to align with facing direction
+        poseStack.translate(0.5, 0.0, 0.5);
+        poseStack.mulPose(Axis.YP.rotationDegrees(-facingYRot));
+        poseStack.translate(-0.5, 0.0, -0.5);
+
+        // --- Nickname line ---
         float textWidth = font.width(owner);
         float scale = TEXT_BASE_SCALE * Math.min(1.0f, TEXT_MAX_WIDTH / textWidth);
 
         poseStack.pushPose();
-        poseStack.translate(0.5, TEXT_Y, 0.5);
-
-        // Billboard: always face the camera
-        Quaternionf camOri = Minecraft.getInstance().getEntityRenderDispatcher().cameraOrientation();
-        poseStack.mulPose(camOri);
-
-        // Text is rendered on the "screen plane": flip X so it reads left-to-right
+        poseStack.translate(0.5, TEXT_Y, FACE_Z);
+        // Sign-style flip: -X so text reads left-to-right, -Y so font is upright
         poseStack.scale(-scale, -scale, scale);
+        drawOutlinedText(font, owner, -textWidth * 0.5f, 0f,
+                0xFFFF5555, 0xFF000000, poseStack.last().pose(), buffers, packedLight);
+        poseStack.popPose();
 
-        Matrix4f matrix = poseStack.last().pose();
-        float cx = -textWidth * 0.5f;
-
-        // Draw the nickname with a glowing outline (8-directional dark outline + bright text)
-        drawOutlinedText(font, owner, cx, 0f, 0xFFFF5555, 0xFF000000, matrix, buffers, packedLight);
-
-        // Cause-of-death line
+        // --- Cause-of-death line (only when cause known) ---
         String cause = be.getDeathCause();
         if (!cause.isEmpty() && !cause.equals("unknown")) {
-            String killer = be.getKillerName();
+            String killer   = be.getKillerName();
             String causeStr;
             try {
-                causeStr = Component.translatable("death.attack." + cause,
-                        killer.isEmpty() ? "?" : killer).getString();
+                // death.attack.<cause> uses %1$s = victim, %2$s = killer
+                causeStr = Component.translatable(
+                        "death.attack." + cause,
+                        owner,
+                        killer.isEmpty() ? "" : killer
+                ).getString();
             } catch (Exception e) {
                 causeStr = cause;
             }
-            float causeScale = 0.65f; // smaller than nick
-            float causeWidth = font.width(causeStr) * causeScale;
-            poseStack.scale(causeScale, causeScale, causeScale);
-            Matrix4f causeMatrix = poseStack.last().pose();
-            drawOutlinedText(font, causeStr,
-                    -causeWidth * 0.5f / causeScale,
-                    CAUSE_Y_OFFSET / scale / causeScale,
-                    0xFFAAAAAA, 0xFF000000,
-                    causeMatrix, buffers, packedLight);
+
+            float causeWidth = font.width(causeStr);
+            float causeScale = TEXT_BASE_SCALE
+                    * Math.min(1.0f, TEXT_MAX_WIDTH / Math.max(1f, causeWidth))
+                    * 0.70f;
+
+            poseStack.pushPose();
+            poseStack.translate(0.5, CAUSE_Y, FACE_Z);
+            poseStack.scale(-causeScale, -causeScale, causeScale);
+            drawOutlinedText(font, causeStr, -causeWidth * 0.5f, 0f,
+                    0xFFAAAAAA, 0xFF000000, poseStack.last().pose(), buffers, packedLight);
+            poseStack.popPose();
         }
 
-        poseStack.popPose();
+        poseStack.popPose(); // facing rotation
     }
 
     /**
@@ -269,7 +299,11 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
         // Face in the recorded yaw direction
         poseStack.mulPose(Axis.YP.rotationDegrees(180f - ghostYaw));
 
-        // Ghost model "sits" 1.5 units below the foot (model origin is at head)
+        // Standard MC entity model flip: required for PlayerModel to render right-side-up
+        // in a block entity renderer (same as LivingEntityRenderer applies before model draw)
+        poseStack.scale(-1f, -1f, 1f);
+
+        // Shift model origin so feet land at GHOST_BASE_Y
         poseStack.translate(0.0, -1.501, 0.0);
 
         float ageInTicks = (gameTick % 1000) + partialTick;
