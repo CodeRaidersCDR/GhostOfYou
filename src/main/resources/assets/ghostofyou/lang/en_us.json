@@ -17,7 +17,8 @@
   "block.ghostofyou.memorial_block.bound":   "Memorial bound to the ghost of %s.",
 
   "effect.ghostofyou.ethereal_form": "Ethereal Form",
-  "item.minecraft.potion.effect.ghostofyou.ethereal_form": "Potion of Ethereal Form",
+  "item.minecraft.potion.effect.ethereal_form": "Ghost Potion",
+  "item.minecraft.potion.effect.ghostofyou.ethereal_form": "Ghost Potion",
 
   "ghostofyou.command.removed": "Removed %d ghost(s).",
   "ghostofyou.command.list.header": "Ghosts in this dimension (%d total):",

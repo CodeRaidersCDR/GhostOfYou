@@ -1,6 +1,10 @@
 package com.coderaiderscdr.ghostofyou.item;
 
 import com.coderaiderscdr.ghostofyou.GhostOfYou;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.EffectRenderingInventoryScreen;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -10,10 +14,12 @@ import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.PotionUtils;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraftforge.client.extensions.common.IClientMobEffectExtensions;
 import net.minecraftforge.common.brewing.BrewingRecipeRegistry;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
+import java.util.function.Consumer;
 
 /**
  * Registers custom mob effects and potions for Ghost of You.
@@ -86,6 +92,30 @@ public class ModPotions {
         @Override
         public boolean isDurationEffectTick(int duration, int amplifier) {
             return true; // tick every game-tick so sub-effects can be maintained
+        }
+
+        @Override
+        public void initializeClient(Consumer<IClientMobEffectExtensions> consumer) {
+            consumer.accept(new IClientMobEffectExtensions() {
+                private static final ResourceLocation ICON = new ResourceLocation(
+                        GhostOfYou.MOD_ID, "textures/item/ghost_essence_python_16x16.png");
+
+                @Override
+                public boolean renderInventoryIcon(MobEffectInstance effect,
+                        EffectRenderingInventoryScreen<?> screen,
+                        GuiGraphics guiGraphics, int x, int y, int blitOffset) {
+                    guiGraphics.blit(ICON, x + 1, y + 1, 0, 0, 16, 16, 16, 16);
+                    return true;
+                }
+
+                @Override
+                public boolean renderGuiIcon(MobEffectInstance effect,
+                        Gui gui, GuiGraphics guiGraphics, int x, int y,
+                        float z, float alpha) {
+                    guiGraphics.blit(ICON, x + 1, y + 1, 0, 0, 16, 16, 16, 16);
+                    return true;
+                }
+            });
         }
     }
 }

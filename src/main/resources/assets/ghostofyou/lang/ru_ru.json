@@ -17,7 +17,8 @@
   "block.ghostofyou.memorial_block.bound":   "Мемориал привязан к призраку %s.",
 
   "effect.ghostofyou.ethereal_form": "Эфирная форма",
-  "item.minecraft.potion.effect.ghostofyou.ethereal_form": "Зелье эфирной формы",
+  "item.minecraft.potion.effect.ethereal_form": "Призрачное зелье",
+  "item.minecraft.potion.effect.ghostofyou.ethereal_form": "Призрачное зелье",
 
   "ghostofyou.command.removed": "Удалено %d призрак(ов).",
   "ghostofyou.command.list.header": "Призраки в измерении (%d всего):",

@@ -90,7 +90,8 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
      * Total loop cycle length in ticks:
      *   recording ticks + DEATH_ANIM_TICKS pause after death + RESPAWN_FADE_TICKS fade-in.
      */
-    private static final int DEATH_ANIM_TICKS  = 20; // 1 s falling-over animation
+    private static final int DEATH_ANIM_TICKS   = 20; // 1 s falling-over animation
+    private static final int DEATH_PAUSE_TICKS  = 40; // 2 s invisible pause before respawn
     private static final int RESPAWN_FADE_TICKS = 15; // 0.75 s fade-in after respawn
 
     // -----------------------------------------------------------------------
@@ -297,11 +298,12 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
         long gameTick = level.getGameTime();
 
         // ------------------------------------------------------------------
-        // Cycle: [0 .. totalTicks-1] = recording
-        //        [totalTicks .. totalTicks+DEATH_ANIM_TICKS-1] = death anim
-        //        [totalTicks+DEATH_ANIM_TICKS .. cycle-1] = respawn fade-in
+        // Cycle: [0 .. totalTicks-1]                                = recording
+        //        [totalTicks .. +DEATH_ANIM_TICKS-1]                = death anim
+        //        [+DEATH_ANIM_TICKS .. +DEATH_PAUSE_TICKS-1]       = 2 s pause
+        //        [+DEATH_PAUSE_TICKS .. cycle-1]                    = respawn fade-in
         // ------------------------------------------------------------------
-        int cycleTicks = pb.totalTicks + DEATH_ANIM_TICKS + RESPAWN_FADE_TICKS;
+        int cycleTicks = pb.totalTicks + DEATH_ANIM_TICKS + DEATH_PAUSE_TICKS + RESPAWN_FADE_TICKS;
         int t = (int)(gameTick % cycleTicks);
 
         float alpha;
@@ -319,14 +321,22 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
             float progress = (t - pb.totalTicks + partialTick) / (float) DEATH_ANIM_TICKS;
             deathRotation = progress * 90f;      // rotate Z axis (fall sideways)
             alpha = 0.75f * (1.0f - progress);   // fade out as ghost falls
+        } else if (t < pb.totalTicks + DEATH_ANIM_TICKS + DEATH_PAUSE_TICKS) {
+            // 2-second invisible pause before respawn
+            frameIndex                = 0;
+            alpha                     = 0f;
+            deathRotation             = 0f;
+            state.walkDistance        = 0f;
+            state.smoothedSwingAmount = 0f;
         } else {
-            // Respawn fade-in phase
+            // Respawn fade-in phase — ghost reappears at starting position (frame 0)
             frameIndex = 0;
-            float progress = (t - pb.totalTicks - DEATH_ANIM_TICKS + partialTick)
+            float progress = (t - pb.totalTicks - DEATH_ANIM_TICKS - DEATH_PAUSE_TICKS + partialTick)
                              / (float) RESPAWN_FADE_TICKS;
-            alpha = 0.75f * progress;            // fade back in
-            deathRotation = 0f;
-            state.walkDistance = 0f;             // reset walk cycle
+            alpha                     = 0.75f * progress;
+            deathRotation             = 0f;
+            state.walkDistance        = 0f;
+            state.smoothedSwingAmount = 0f;
         }
 
         float relX = pb.relX[frameIndex];
@@ -335,7 +345,7 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
         float ghostYaw  = pb.yaw[frameIndex];
         byte  ghostFlags = pb.flags[frameIndex];
 
-        // Smooth position interpolation (normal playback phase only)
+        // Smooth position + yaw interpolation (normal playback phase only)
         if (t < pb.totalTicks && frameIndex + 1 < pb.frameCount) {
             int curTick  = frameIndex > 0 ? pb.tickAtFrame[frameIndex - 1] : 0;
             int nextTick = pb.tickAtFrame[frameIndex];
@@ -346,18 +356,25 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
                 relX += (pb.relX[frameIndex + 1] - relX) * lerp;
                 relY += (pb.relY[frameIndex + 1] - relY) * lerp;
                 relZ += (pb.relZ[frameIndex + 1] - relZ) * lerp;
+                // Interpolate yaw along the shortest angular path
+                float yawDiff = pb.yaw[frameIndex + 1] - ghostYaw;
+                if (yawDiff >  180) yawDiff -= 360;
+                if (yawDiff < -180) yawDiff += 360;
+                ghostYaw += yawDiff * lerp;
             }
         }
 
-        // Walk animation (zero out during death/respawn)
+        // Walk animation with exponential smoothing for natural arm swings
         float dh = 0f;
         if (t < pb.totalTicks) {
             dh = Math.abs(frameIndex > 0 ? pb.relX[frameIndex] - pb.relX[frameIndex - 1] : 0f)
                + Math.abs(frameIndex > 0 ? pb.relZ[frameIndex] - pb.relZ[frameIndex - 1] : 0f);
             state.walkDistance += dh * 15f;
         }
-        float limbSwing       = state.walkDistance;
-        float limbSwingAmount = (t < pb.totalTicks) ? Math.min(1.0f, dh * 20f) : 0f;
+        float targetSwingAmount   = (t < pb.totalTicks) ? Math.min(1.0f, dh * 20f) : 0f;
+        state.smoothedSwingAmount = state.smoothedSwingAmount * 0.8f + targetSwingAmount * 0.2f;
+        float limbSwing           = state.walkDistance;
+        float limbSwingAmount     = state.smoothedSwingAmount;
 
         // Pose
         ghostModel.crouching = (ghostFlags & Frame.FLAG_SNEAK) != 0;
@@ -401,7 +418,8 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
     private static final class MiniPlaybackState {
         final MiniPlayback playback;
         final BlockPos     pos;
-        float walkDistance = 0f;
+        float walkDistance        = 0f;
+        float smoothedSwingAmount = 0f;
 
         MiniPlaybackState(MiniPlayback playback, BlockPos pos) {
             this.playback = playback;
