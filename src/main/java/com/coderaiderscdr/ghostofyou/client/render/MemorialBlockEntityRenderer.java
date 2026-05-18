@@ -198,10 +198,10 @@ public class MemorialBlockEntityRenderer implements BlockEntityRenderer<Memorial
                 causeRaw = causeKey;
             }
 
-            // Word-wrap to TEXT_MAX_WIDTH font-pixels
-            List<String> lines = wordWrap(font, causeRaw, (int) TEXT_MAX_WIDTH);
+            // Word-wrap: cause font is 2× smaller than name, so it gets 2/1.5× more pixels per line
+            List<String> lines = wordWrap(font, causeRaw, (int)(TEXT_MAX_WIDTH * 2.0f / 1.5f));
 
-            float causeScale = TEXT_BASE_SCALE * (0.85f / 1.5f); // ~0.57× nick size
+            float causeScale = TEXT_BASE_SCALE * (0.85f / 2.0f); // 2× smaller than nick size
 
             for (int i = 0; i < lines.size(); i++) {
                 String line = lines.get(i);
