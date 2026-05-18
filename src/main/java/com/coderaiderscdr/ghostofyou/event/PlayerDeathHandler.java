@@ -1,6 +1,5 @@
 package com.coderaiderscdr.ghostofyou.event;
 
-import com.coderaiderscdr.ghostofyou.GhostOfYou;
 import com.coderaiderscdr.ghostofyou.config.ConfigManager;
 import com.coderaiderscdr.ghostofyou.entity.GhostEntity;
 import com.coderaiderscdr.ghostofyou.entity.ModEntities;
@@ -8,6 +7,7 @@ import com.coderaiderscdr.ghostofyou.entity.SoulCrystalEntity;
 import com.coderaiderscdr.ghostofyou.recording.ActionEventLog;
 import com.coderaiderscdr.ghostofyou.recording.CircularFrameBuffer;
 import com.coderaiderscdr.ghostofyou.recording.PlayerRecorder;
+import com.coderaiderscdr.ghostofyou.util.ModLogger;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -43,12 +43,16 @@ public class PlayerDeathHandler {
         double deathZ = player.getZ();
 
         PlayerRecorder recorder = PlayerTickHandler.getRecorder(player.getUUID());
-        if (recorder != null && deathY < level.getMinBuildHeight()) {
+        if (recorder == null) {
+            ModLogger.SPAWN.warn("No recorder for {} at death — skipping ghost spawn",
+                    player.getName().getString());
+            return;
+        }
+
+        if (deathY < level.getMinBuildHeight()) {
             double[] safe = recorder.getLastSafePosition();
             deathY = safe[1];
         }
-
-        if (recorder == null) return;
 
         recorder.captureImmediateFrame();
 
@@ -56,7 +60,7 @@ public class PlayerDeathHandler {
         ActionEventLog eventLog = recorder.getEventLog();
 
         if (buffer.size() == 0) {
-            GhostOfYou.LOGGER.debug("Recorder for {} had no frames at death; writing emergency death frames",
+            ModLogger.SPAWN.info("Empty buffer for {} — using emergency death frames",
                     player.getName().getString());
             recorder.captureEmergencyDeathFrames(deathX, deathY, deathZ);
         }
@@ -65,6 +69,10 @@ public class PlayerDeathHandler {
         if (ghost == null) return;
 
         ghost.initFromRecording(player, deathX, deathY, deathZ, buffer, eventLog.getAll());
+
+        // Store death cause so Ghost Essence tooltip shows the actual cause (e.g. "fall", "player")
+        String deathCauseKey = "death.attack." + event.getSource().getMsgId();
+        ghost.setDeathCauseKey(deathCauseKey);
 
         enforceChunkCap(level, deathX, deathZ);
         enforcePlayerCap(level, player.getUUID());
@@ -79,7 +87,7 @@ public class PlayerDeathHandler {
             level.addFreshEntity(crystal);
         }
 
-        GhostOfYou.LOGGER.info("Spawned ghost of {} at ({},{},{}) with {} frames",
+        ModLogger.SPAWN.info("Spawned ghost of {} at ({},{},{}) with {} frames",
                 player.getName().getString(), deathX, deathY, deathZ, buffer.size());
 
         player.sendSystemMessage(Component.translatable("ghostofyou.ghost_spawned",

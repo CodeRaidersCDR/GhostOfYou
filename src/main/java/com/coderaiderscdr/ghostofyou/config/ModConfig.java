@@ -95,11 +95,11 @@ public class ModConfig {
 
             builder.push("recording");
             recordingDurationSeconds = builder
-                    .comment("Duration in seconds to keep in the recording buffer (30–900).")
-                    .defineInRange("recordingDurationSeconds", 300, 30, 900);
+                    .comment("Duration in seconds to keep in the recording buffer (3–900).")
+                    .defineInRange("recordingDurationSeconds", 3, 3, 900);
             sampleIntervalTicks = builder
                     .comment("Record one frame every N ticks (1–20). Lower = smoother, more memory.")
-                    .defineInRange("sampleIntervalTicks", 4, 1, 20);
+                    .defineInRange("sampleIntervalTicks", 1, 1, 20);
             recordBlockActions = builder
                     .comment("Record block break/place events.")
                     .define("recordBlockActions", true);

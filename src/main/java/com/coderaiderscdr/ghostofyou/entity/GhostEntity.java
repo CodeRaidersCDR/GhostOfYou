@@ -4,6 +4,7 @@ import com.coderaiderscdr.ghostofyou.config.ConfigManager;
 import com.coderaiderscdr.ghostofyou.recording.ActionEvent;
 import com.coderaiderscdr.ghostofyou.recording.CircularFrameBuffer;
 import com.coderaiderscdr.ghostofyou.recording.Frame;
+import com.coderaiderscdr.ghostofyou.util.ModLogger;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -22,6 +23,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -63,6 +65,7 @@ public class GhostEntity extends Monster {
     private static final String NBT_DEATH_Z       = "DeathZ";
     private static final String NBT_CREATION_TIME = "CreationTime";
     private static final String NBT_RECORDING     = "Recording";
+    private static final String NBT_DEATH_CAUSE   = "DeathCause";
 
     // ------------------------------------------------------------------
     // Fields
@@ -71,6 +74,10 @@ public class GhostEntity extends Monster {
     @Nullable private UUID ownerUUID;
     private double deathX, deathY, deathZ;
     private long   creationTime;
+    private String deathCauseKey = "unknown";
+
+    /** Set to true when triggerEndOfPlaybackDeath() is called to allow kill() through. */
+    private transient boolean dyingState = false;
 
     @Nullable private PlaybackController playbackController;
     private long lastPlaybackGameTick = Long.MIN_VALUE;
@@ -81,10 +88,12 @@ public class GhostEntity extends Monster {
 
     public GhostEntity(EntityType<? extends GhostEntity> type, Level level) {
         super(type, level);
-        this.noPhysics = true;
+        // NOTE: do NOT set noPhysics = true here. Use noGravity + travel override
+        // instead, so that vanilla position sync still works on the client.
         this.setNoGravity(true);
         this.setInvulnerable(true);
         this.setPersistenceRequired();
+        this.setNoAi(true);          // disables goal selector AND mob navigation
     }
 
     // ------------------------------------------------------------------
@@ -155,45 +164,48 @@ public class GhostEntity extends Monster {
     @Override
     protected void registerGoals() { /* intentionally empty */ }
 
-    /** Ghost has no AI step. HOT PATH avoidance. */
-    @Override
-    public void aiStep() { /* intentionally empty */ }
+    /**
+     * IMPORTANT: Do NOT override aiStep() with empty body.
+     * Vanilla Mob.aiStep() handles client-side lerpSteps interpolation —
+     * removing it makes the ghost ignore server position packets.
+     *
+     * Goals are not registered, and setNoAi(true) is set in constructor,
+     * so no AI logic actually runs.
+     */
 
     @Override
     public void tick() {
         super.tick();
-        this.noPhysics = true;
+
+        // Block gravity every tick (in case external code re-enables it)
         this.setNoGravity(true);
 
-        if (!level().isClientSide() && !ConfigManager.isPlaybackPaused() && shouldTickPlaybackThisTick()) {
-            tickPlayback();
-        }
-
-        updateWalkAnimationFromPlayback();
-    }
-
-    private void updateWalkAnimationFromPlayback() {
-        double dx = this.getDeltaMovement().x;
-        double dz = this.getDeltaMovement().z;
-        float speed = (float) Math.sqrt(dx * dx + dz * dz) * 4.0f;
-        if (speed > 1.0f) speed = 1.0f;
-        this.walkAnimation.update(speed, 0.4f);
+        // Playback is driven externally by ServerTickHandler.tickPlayback(stride).
+        // Walk animation is updated here so it stays current every render tick.
+        Vec3 delta = this.getDeltaMovement();
+        float horizontalSpeed = (float) Math.sqrt(delta.x * delta.x + delta.z * delta.z);
+        float animSpeed = Math.min(1.0f, horizontalSpeed * 4.0f);
+        this.walkAnimation.update(animSpeed, 0.4f);
     }
 
     /**
-     * Suppress all LivingEntity physics (gravity, momentum, sliding).
-     * Ghost position is set exclusively by {@link PlaybackController#tick(GhostEntity)}.
-     * Without this override, LivingEntity.travel() would pull the ghost down with gravity
-     * every tick, overriding the setPos() calls from the playback controller.
+     * Block vanilla physics (gravity, momentum). Position is set exclusively
+     * by PlaybackController via setPos(). Without this override,
+     * LivingEntity.travel() would apply gravity each tick.
      */
     @Override
-    public void travel(net.minecraft.world.phys.Vec3 travelVector) {
-        this.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+    public void travel(Vec3 travelVector) {
+        if (this.isAlive()) {
+            // Intentionally no movement application. Keep delta movement as set
+            // by playback controller (used for walk animation speed).
+            this.calculateEntityAnimation(false);
+        }
+        // During death animation let vanilla handle position (entity tips over in place).
     }
 
-    /** Ghost never takes damage. */
+    /** Ghost never takes damage — unless {@link #triggerEndOfPlaybackDeath()} was called. */
     @Override
-    public boolean isInvulnerableTo(DamageSource source) { return true; }
+    public boolean isInvulnerableTo(DamageSource source) { return !dyingState; }
 
     /** Ghost cannot be leashed. */
     @Override
@@ -214,57 +226,57 @@ public class GhostEntity extends Monster {
     @Override
     protected void dropAllDeathLoot(DamageSource damageSource) { /* no-op */ }
 
+    /**
+     * Called by {@link PlaybackController} when the last recorded frame has been
+     * played back (the ghost has "re-lived" its death).
+     * Bypasses {@link #isInvulnerableTo} and triggers the vanilla death animation,
+     * after which the entity is automatically removed.
+     */
+    void triggerEndOfPlaybackDeath() {
+        if (!this.isAlive()) return;
+        this.dyingState = true;
+        this.kill(); // hurt(genericKill, MAX_FLOAT) → die() → 20-tick death anim
+    }
+
     // ------------------------------------------------------------------
     // Playback
     // ------------------------------------------------------------------
 
     /**
-     * Advance playback by one step.
-     * HOT PATH — called with LOD-based frequency from {@code ServerTickHandler}.
+     * Advance playback by {@code stride} virtual game ticks.
+     * Called by {@link com.coderaiderscdr.ghostofyou.event.ServerTickHandler},
+     * which handles the LOD-based scheduling (near zone stride=1,
+     * mid zone stride=4, etc.).
+     *
+     * <p>Advancing by multiple virtual ticks at once compensates for skipped
+     * server ticks so the ghost stays temporally in sync with the recording.
+     *
+     * @param stride number of game-tick steps to advance (≥ 1)
      */
-    public void tickPlayback() {
+    public void tickPlayback(int stride) {
         if (playbackController == null) return;
         if (level().isClientSide()) return;
+        if (!this.isAlive()) return;
 
         long gameTick = level().getGameTime();
         if (lastPlaybackGameTick == gameTick) return;
         lastPlaybackGameTick = gameTick;
 
-        playbackController.tick(this);
+        for (int i = 0; i < stride && this.isAlive(); i++) {
+            playbackController.tick(this);
+        }
 
-        // Debug: log position every 100 playback ticks to confirm movement
         int frame = playbackController.getCurrentFrame();
-        if (frame % 100 == 0) {
-            com.coderaiderscdr.ghostofyou.GhostOfYou.LOGGER.debug(
-                    "Ghost[{}] frame={} pos=({},{},{})",
+        if (ModLogger.PLAYBACK.isDebugEnabled() && frame % 100 == 0) {
+            ModLogger.PLAYBACK.debug("Ghost[{}] frame={} pos=({},{},{}) delta=({},{},{})",
                     getOwnerName(), frame,
-                    String.format("%.1f", getX()),
-                    String.format("%.1f", getY()),
-                    String.format("%.1f", getZ()));
+                    String.format("%.2f", getX()),
+                    String.format("%.2f", getY()),
+                    String.format("%.2f", getZ()),
+                    String.format("%.3f", getDeltaMovement().x),
+                    String.format("%.3f", getDeltaMovement().y),
+                    String.format("%.3f", getDeltaMovement().z));
         }
-    }
-
-    private boolean shouldTickPlaybackThisTick() {
-        long gameTick = level().getGameTime();
-
-        double minDistSq = Double.MAX_VALUE;
-        for (Player player : level().players()) {
-            double dsq = player.distanceToSqr(this);
-            if (dsq < minDistSq) minDistSq = dsq;
-        }
-
-        int nearDist = ConfigManager.lodNearDistance();
-        int midDist = ConfigManager.lodFarDistance();
-        int freezeDist = ConfigManager.lodFreezeDistance();
-
-        double nearSq = (double) nearDist * nearDist;
-        double midSq = (double) midDist * midDist;
-        double freezeSq = (double) freezeDist * freezeDist;
-
-        if (minDistSq <= nearSq) return true;
-        if (minDistSq <= midSq) return gameTick % 4 == 0;
-        if (minDistSq <= freezeSq) return gameTick % 10 == 0;
-        return gameTick % 20 == 0;
     }
 
     void applyRecordedPose(byte flags) {
@@ -295,6 +307,7 @@ public class GhostEntity extends Monster {
         if (playbackController != null) {
             tag.put(NBT_RECORDING, playbackController.saveToNbt(deathX, deathY, deathZ));
         }
+        tag.putString(NBT_DEATH_CAUSE, deathCauseKey);
     }
 
     @Override
@@ -316,6 +329,9 @@ public class GhostEntity extends Monster {
                     tag.getCompound(NBT_RECORDING));
             double[] start = playbackController.getStartPosition();
             this.setPos(start[0], start[1], start[2]);
+        }
+        if (tag.contains(NBT_DEATH_CAUSE)) {
+            this.deathCauseKey = tag.getString(NBT_DEATH_CAUSE);
         }
     }
 
@@ -341,6 +357,10 @@ public class GhostEntity extends Monster {
     public double getDeathZ() { return deathZ; }
 
     public long getCreationTime() { return creationTime; }
+
+    /** Translation key for the cause of this ghost's original death (e.g. {@code "death.attack.fall"}). */
+    public String getDeathCauseKey() { return deathCauseKey; }
+    public void   setDeathCauseKey(String key) { this.deathCauseKey = key; }
 
     @Nullable public PlaybackController getPlaybackController() { return playbackController; }
 

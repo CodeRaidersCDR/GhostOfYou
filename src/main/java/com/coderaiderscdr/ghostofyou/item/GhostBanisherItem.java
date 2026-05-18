@@ -6,8 +6,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
@@ -98,12 +96,6 @@ public class GhostBanisherItem extends Item {
                 sl.sendParticles(ParticleTypes.PORTAL, x + ox, y + oy, z + oz, 1, 0, 0, 0, 0.05);
             }
         }
-
-        // Play sound every 20 ticks
-        if (remainingUseTicks % 20 == 0) {
-            sl.playSound(null, ghost.blockPosition(),
-                    SoundEvents.SOUL_ESCAPE, SoundSource.AMBIENT, 0.4f, 1.0f);
-        }
     }
 
     /**
@@ -128,6 +120,8 @@ public class GhostBanisherItem extends Item {
             GhostInteraction.cancelBanishing(player.getUUID());
             player.displayClientMessage(
                     Component.translatable("ghostofyou.banish.cancelled"), true);
+            // 5-second cooldown even on cancel so the item can't be rapidly re-used
+            player.getCooldowns().addCooldown(stack.getItem(), 100);
         }
     }
 

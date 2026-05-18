@@ -6,8 +6,10 @@ import com.coderaiderscdr.ghostofyou.entity.ModEntities;
 import com.coderaiderscdr.ghostofyou.event.BlockActionHandler;
 import com.coderaiderscdr.ghostofyou.event.PlayerDeathHandler;
 import com.coderaiderscdr.ghostofyou.event.PlayerTickHandler;
+import com.coderaiderscdr.ghostofyou.event.ServerTickHandler;
 import com.coderaiderscdr.ghostofyou.item.ModItems;
 import com.coderaiderscdr.ghostofyou.network.ModNetwork;
+import com.coderaiderscdr.ghostofyou.sound.ModSounds;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.DistExecutor;
@@ -33,6 +35,7 @@ public class GhostOfYou {
         ModBlocks.BLOCKS.register(modBus);
         ModBlocks.BLOCK_ITEMS.register(modBus);
         ModEntities.ENTITY_TYPES.register(modBus);
+        ModSounds.SOUNDS.register(modBus);
 
         modBus.addListener(this::commonSetup);
 
@@ -40,6 +43,7 @@ public class GhostOfYou {
         MinecraftForge.EVENT_BUS.register(PlayerDeathHandler.class);
         MinecraftForge.EVENT_BUS.register(PlayerTickHandler.class);
         MinecraftForge.EVENT_BUS.register(BlockActionHandler.class);
+        MinecraftForge.EVENT_BUS.register(ServerTickHandler.class);
 
         // Client-only registration via DistExecutor to avoid server-side class loading
         DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT,

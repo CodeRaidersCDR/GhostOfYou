@@ -1,10 +1,9 @@
 package com.coderaiderscdr.ghostofyou.entity;
 
-import com.coderaiderscdr.ghostofyou.GhostOfYou;
 import com.coderaiderscdr.ghostofyou.config.ConfigManager;
 import com.coderaiderscdr.ghostofyou.recording.Frame;
+import com.coderaiderscdr.ghostofyou.util.ModLogger;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.InteractionHand;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -30,6 +29,14 @@ public class PlaybackController {
     /** Absolute world coordinates of the oldest retained sample. */
     private final double startX, startY, startZ;
 
+    /**
+     * First frame index that has noticeable movement (XZ >= 0.05 or Y >= 0.05 blocks).
+     * Leading stationary frames (player was standing still before the fatal fall) are
+     * skipped so the ghost immediately starts moving when the loop begins/resets.
+     */
+    private final int    loopStartFrame;
+    private final double loopStartX, loopStartY, loopStartZ;
+
     /** Running absolute position during playback. */
     private double currentX, currentY, currentZ;
 
@@ -41,7 +48,9 @@ public class PlaybackController {
 
     /** Ticks waited since last loop reset. */
     private int loopDelayCounter = 0;
-    private byte previousFlags = 0;
+
+    /** True after the final frame has been played; prevents repeated death trigger calls. */
+    private boolean playbackComplete = false;
 
     /**
      * Create a controller from raw, ordered frame bytes.
@@ -82,17 +91,47 @@ public class PlaybackController {
         this.startY = deathY - totalDy;
         this.startZ = deathZ - totalDz;
 
-        this.currentX = startX;
-        this.currentY = startY;
-        this.currentZ = startZ;
-        this.currentFrame = 0;
+        // Scan for the first frame with noticeable movement so the playback loop
+        // skips any leading "standing still" portion.  This fixes the case where
+        // the player stood motionless for most of the recording window and then
+        // died from a fall — without the skip the ghost visually stands in place
+        // at the cliff edge for most of the loop before falling.
+        {
+            int   firstMoving = 0;
+            double lsX = startX, lsY = startY, lsZ = startZ;
+            double accumX = startX, accumY = startY, accumZ = startZ;
+            for (int i = 0; i < frameCount; i++) {
+                float fdx = Frame.readDeltaX(frames, i);
+                float fdy = Frame.readDeltaY(frames, i);
+                float fdz = Frame.readDeltaZ(frames, i);
+                if (Math.abs(fdx) + Math.abs(fdz) >= 0.05f || Math.abs(fdy) >= 0.05f) {
+                    firstMoving = i;
+                    lsX = accumX;
+                    lsY = accumY;
+                    lsZ = accumZ;
+                    break;
+                }
+                accumX += fdx;
+                accumY += fdy;
+                accumZ += fdz;
+            }
+            this.loopStartFrame = firstMoving;
+            this.loopStartX = lsX;
+            this.loopStartY = lsY;
+            this.loopStartZ = lsZ;
+        }
+
+        this.currentX = loopStartX;
+        this.currentY = loopStartY;
+        this.currentZ = loopStartZ;
+        this.currentFrame = loopStartFrame;
         this.frameTick = 0;
-        this.frameStartX = startX;
-        this.frameStartY = startY;
-        this.frameStartZ = startZ;
-        this.frameTargetX = startX;
-        this.frameTargetY = startY;
-        this.frameTargetZ = startZ;
+        this.frameStartX = loopStartX;
+        this.frameStartY = loopStartY;
+        this.frameStartZ = loopStartZ;
+        this.frameTargetX = loopStartX;
+        this.frameTargetY = loopStartY;
+        this.frameTargetZ = loopStartZ;
     }
 
     /**
@@ -103,9 +142,10 @@ public class PlaybackController {
         if (frameCount == 0) return;
 
         if (currentFrame >= frameCount) {
-            loopDelayCounter++;
-            if (loopDelayCounter >= ConfigManager.playbackLoopDelayTicks()) {
-                reset(ghost);
+            // Playback has reached the death position — trigger death animation once.
+            if (!playbackComplete) {
+                playbackComplete = true;
+                ghost.triggerEndOfPlaybackDeath();
             }
             return;
         }
@@ -144,26 +184,24 @@ public class PlaybackController {
             frameTick = 0;
         }
 
-        ghost.xo = ghost.getX();
-        ghost.yo = ghost.getY();
-        ghost.zo = ghost.getZ();
-        ghost.xOld = ghost.getX();
-        ghost.yOld = ghost.getY();
-        ghost.zOld = ghost.getZ();
-        ghost.setPos(currentX, currentY, currentZ);
-        ghost.setDeltaMovement(currentX - previousX, currentY - previousY, currentZ - previousZ);
-        ghost.hasImpulse = true;
-
         float yaw = yawCenti / 100.0f;
         float pitch = pitchCenti / 100.0f;
-        ghost.yRotO = ghost.getYRot();
-        ghost.xRotO = ghost.getXRot();
-        ghost.yHeadRotO = ghost.yHeadRot;
-        ghost.yBodyRotO = ghost.yBodyRot;
-        ghost.setYRot(yaw);
-        ghost.setXRot(pitch);
+
+        // moveTo() sets position AND rotation in a way that vanilla properly
+        // tracks for client packet generation. setPos() alone does not always
+        // mark the entity as moved for packet purposes.
+        ghost.moveTo(currentX, currentY, currentZ, yaw, pitch);
         ghost.setYHeadRot(yaw);
         ghost.setYBodyRot(yaw);
+
+        // DO NOT touch xOld/yOld/zOld or yRotO/xRotO here.
+        // Vanilla super.tick() will set them BEFORE this tick runs.
+
+        // Delta movement is used by walk animation in GhostEntity.tick()
+        ghost.setDeltaMovement(
+                currentX - previousX,
+                currentY - previousY,
+                currentZ - previousZ);
 
         ghost.setShiftKeyDown((flags & Frame.FLAG_SNEAK) != 0);
         ghost.setSprinting((flags & Frame.FLAG_SPRINT) != 0);
@@ -171,43 +209,31 @@ public class PlaybackController {
         ghost.setOnGround((flags & Frame.FLAG_ON_GROUND) != 0);
         ghost.applyRecordedPose(flags);
 
-        if ((flags & Frame.FLAG_ATTACK) != 0 && (previousFlags & Frame.FLAG_ATTACK) == 0) {
-            ghost.swing(InteractionHand.MAIN_HAND);
-        }
-        previousFlags = flags;
-
         boolean onFire = (flags & Frame.FLAG_ON_FIRE) != 0;
         ghost.setSharedFlagOnFire(onFire);
         ghost.setRemainingFireTicks(onFire ? 20 : 0);
     }
 
     private void reset(GhostEntity ghost) {
-        currentFrame = 0;
+        currentFrame = loopStartFrame;
         frameTick = 0;
         loopDelayCounter = 0;
-        currentX = startX;
-        currentY = startY;
-        currentZ = startZ;
-        frameStartX = startX;
-        frameStartY = startY;
-        frameStartZ = startZ;
-        frameTargetX = startX;
-        frameTargetY = startY;
-        frameTargetZ = startZ;
-        previousFlags = 0;
-        ghost.xo = ghost.getX();
-        ghost.yo = ghost.getY();
-        ghost.zo = ghost.getZ();
-        ghost.xOld = ghost.getX();
-        ghost.yOld = ghost.getY();
-        ghost.zOld = ghost.getZ();
-        ghost.setPos(startX, startY, startZ);
+        currentX = loopStartX;
+        currentY = loopStartY;
+        currentZ = loopStartZ;
+        frameStartX = loopStartX;
+        frameStartY = loopStartY;
+        frameStartZ = loopStartZ;
+        frameTargetX = loopStartX;
+        frameTargetY = loopStartY;
+        frameTargetZ = loopStartZ;
+        ghost.moveTo(loopStartX, loopStartY, loopStartZ, ghost.getYRot(), ghost.getXRot());
         ghost.setDeltaMovement(0.0, 0.0, 0.0);
     }
 
-    /** The oldest retained position, where the ghost begins each playback loop. */
+    /** The position where the ghost's playback loop begins (first frame with movement). */
     public double[] getStartPosition() {
-        return new double[]{ startX, startY, startZ };
+        return new double[]{ loopStartX, loopStartY, loopStartZ };
     }
 
     public int getFrameCount() { return frameCount; }
@@ -240,7 +266,7 @@ public class PlaybackController {
             stored = baos.toByteArray();
             compressed = true;
         } catch (IOException e) {
-            GhostOfYou.LOGGER.warn("Could not compress ghost recording", e);
+            ModLogger.PLAYBACK.warn("Could not compress ghost recording", e);
             stored = raw;
         }
 
@@ -263,7 +289,7 @@ public class PlaybackController {
             try (GZIPInputStream gz = new GZIPInputStream(new ByteArrayInputStream(stored))) {
                 raw = gz.readAllBytes();
             } catch (IOException e) {
-                GhostOfYou.LOGGER.error("Failed to decompress ghost recording", e);
+                ModLogger.PLAYBACK.error("Failed to decompress ghost recording", e);
                 raw = stored;
             }
         } else {

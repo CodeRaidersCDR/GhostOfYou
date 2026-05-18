@@ -1,6 +1,7 @@
 package com.coderaiderscdr.ghostofyou.recording;
 
 import com.coderaiderscdr.ghostofyou.config.ConfigManager;
+import com.coderaiderscdr.ghostofyou.util.ModLogger;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -48,7 +49,7 @@ public class PlayerRecorder {
         this.lastSafeX = player.getX();
         this.lastSafeY = player.getY();
         this.lastSafeZ = player.getZ();
-        captureSpawnFrame();
+        ModLogger.RECORDING.debug("Rebuilt buffer for {} cap={}", player.getName().getString(), capacity);
     }
 
     // ------------------------------------------------------------------
@@ -80,32 +81,25 @@ public class PlayerRecorder {
         captureFrame(ticksSincePreviousFrame);
     }
 
-    public void captureSpawnFrame() {
-        tickSinceLastFrame = 1;
-        captureFrame(1);
-    }
-
-    public void captureEmergencyDeathFrames(double deathX, double deathY, double deathZ) {
+    public void captureEmergencyDeathFrames(double x, double y, double z) {
         float yaw = player.getYRot();
         float pitch = player.getXRot();
-        short yawCenti = (short) Math.round(yaw * 100f);
+        short yawCenti   = (short) Math.round(yaw   * 100f);
         short pitchCenti = (short) Math.round(pitch * 100f);
-        byte heldSlot = (byte) player.getInventory().selected;
-        byte flags = Frame.FLAG_HURT;
-        if (player.onGround()) flags |= Frame.FLAG_ON_GROUND;
+        byte flags = Frame.FLAG_ON_GROUND;
 
-        frameBuffer.write((short) 1, 0.0f, 0.0f, 0.0f,
-                yawCenti, pitchCenti, flags, heldSlot, 0, 0);
-        frameBuffer.write((short) 1, 0.0f, 0.0f, 0.0f,
-                yawCenti, pitchCenti, flags, heldSlot, 0, 0);
+        // Pretend the player walked 1 block forward then stopped — gives some
+        // visible movement in the playback so it's not a literal corpse.
+        float dirX = -(float) Math.sin(Math.toRadians(yaw)) * 0.5f;
+        float dirZ =  (float) Math.cos(Math.toRadians(yaw)) * 0.5f;
 
-        prevX = deathX;
-        prevY = deathY;
-        prevZ = deathZ;
-        prevYaw = yaw;
-        prevPitch = pitch;
-        prevHeldSlot = heldSlot;
-        initialized = true;
+        frameBuffer.write((short) 20, dirX, dirZ, 0f,
+                yawCenti, pitchCenti, flags, (byte) 0, 0, 0);
+        frameBuffer.write((short) 20, 0f, 0f, 0f,
+                yawCenti, pitchCenti, flags, (byte) 0, 0, 0);
+
+        ModLogger.RECORDING.info("Captured emergency death frames for {} at ({},{},{})",
+                player.getName().getString(), x, y, z);
     }
 
     /** Sample the player's current state and write one frame. */

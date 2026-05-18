@@ -81,19 +81,16 @@ public class ServerTickHandler {
 
             if (minDistSq <= nearSq) {
                 // Near zone — tick every game tick
-                ghost.tickPlayback();
+                ghost.tickPlayback(1);
             } else if (minDistSq <= midSq) {
-                // Mid zone — tick every 4 ticks
-                if (gameTick % 4 == 0) ghost.tickPlayback();
+                // Mid zone — tick every 4 ticks, but advance by 4 virtual ticks
+                if (gameTick % 4 == 0) ghost.tickPlayback(4);
             } else if (minDistSq <= freezeSq) {
-                // Far zone — tick every 10 ticks
-                if (gameTick % 10 == 0) ghost.tickPlayback();
+                // Far zone — tick every 10 ticks, advance by 10 virtual ticks
+                if (gameTick % 10 == 0) ghost.tickPlayback(10);
             } else {
-                // Beyond freeze distance (or no players in level) — tick every 20 ticks
-                // Ghosts NEVER fully stop: this ensures playback continues even when
-                // the player respawns far away, so the ghost is always at the right
-                // position when the player walks back.
-                if (gameTick % 20 == 0) ghost.tickPlayback();
+                // Beyond freeze distance — tick every 20 ticks, advance by 20 virtual ticks
+                if (gameTick % 20 == 0) ghost.tickPlayback(20);
             }
         }
     }

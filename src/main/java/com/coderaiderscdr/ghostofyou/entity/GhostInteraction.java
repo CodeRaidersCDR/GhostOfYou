@@ -1,5 +1,7 @@
 package com.coderaiderscdr.ghostofyou.entity;
 
+import com.coderaiderscdr.ghostofyou.sound.ModSounds;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -41,6 +43,13 @@ public final class GhostInteraction {
         if (activeBanishings.containsKey(player.getUUID())) return; // already channeling
         activeBanishings.put(player.getUUID(), ghost.getUUID());
         player.startUsingItem(hand);
+
+        // Play a random exorcist incantation (Minecraft picks one of the 4 variants)
+        if (player.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+            sl.playSound(null, ghost.blockPosition(),
+                    ModSounds.GHOST_EXORCIST.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
+        }
+
         player.displayClientMessage(
                 net.minecraft.network.chat.Component.translatable("ghostofyou.banish.start"),
                 true);
@@ -77,7 +86,7 @@ public final class GhostInteraction {
                 // Write ghost metadata into NBT
                 net.minecraft.nbt.CompoundTag meta = new net.minecraft.nbt.CompoundTag();
                 meta.putString("ghostName",        ghost.getOwnerName());
-                meta.putString("deathCauseKey",    "unknown");
+                meta.putString("deathCauseKey",    ghost.getDeathCauseKey());
                 long lifespan = (sl.getGameTime() - ghost.getCreationTime()) / 1200L; // minutes
                 meta.putLong  ("lifespanMinutes",  lifespan);
                 essence.setTag(meta);
@@ -94,6 +103,9 @@ public final class GhostInteraction {
                     stack.hurtAndBreak(1, player,
                             p -> p.broadcastBreakEvent(player.getUsedItemHand()));
                 }
+
+                // Apply 5-second cooldown (100 ticks) so the banisher can't be used immediately
+                player.getCooldowns().addCooldown(stack.getItem(), 100);
             }
         }
     }

@@ -1,9 +1,9 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    ".E.",
+    " E ",
     "SAS",
-    ".R."
+    " R "
   ],
   "key": {
     "E": { "item": "minecraft:ender_eye" },
