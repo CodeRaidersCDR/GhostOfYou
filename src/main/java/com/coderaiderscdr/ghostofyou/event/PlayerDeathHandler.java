@@ -54,46 +54,44 @@ public class PlayerDeathHandler {
             deathY = safe[1];
         }
 
-        recorder.captureImmediateFrame();
+        try {
+            recorder.captureImmediateFrame();
+            CircularFrameBuffer buffer = recorder.getFrameBuffer();
+            ActionEventLog eventLog = recorder.getEventLog();
 
-        CircularFrameBuffer buffer = recorder.getFrameBuffer();
-        ActionEventLog eventLog = recorder.getEventLog();
+            if (buffer.size() == 0) {
+                ModLogger.SPAWN.info("Empty buffer for {} — using emergency death frames",
+                        player.getName().getString());
+                recorder.captureEmergencyDeathFrames(deathX, deathY, deathZ);
+            }
 
-        if (buffer.size() == 0) {
-            ModLogger.SPAWN.info("Empty buffer for {} — using emergency death frames",
-                    player.getName().getString());
-            recorder.captureEmergencyDeathFrames(deathX, deathY, deathZ);
+            GhostEntity ghost = ModEntities.GHOST.get().create(level);
+            if (ghost == null) {
+                ModLogger.SPAWN.error("Failed to create ghost entity instance");
+                return;
+            }
+
+            ghost.initFromRecording(player, deathX, deathY, deathZ, buffer, eventLog.getAll());
+            enforceChunkCap(level, deathX, deathZ);
+            enforcePlayerCap(level, player.getUUID());
+            level.addFreshEntity(ghost);
+
+            SoulCrystalEntity crystal = ModEntities.SOUL_CRYSTAL.get().create(level);
+            if (crystal != null) {
+                crystal.setPos(deathX, deathY, deathZ);
+                crystal.setLinkedGhostUUID(ghost.getUUID());
+                crystal.setOwnerName(player.getName().getString());
+                level.addFreshEntity(crystal);
+            }
+
+            ModLogger.SPAWN.info("Spawned ghost of {} at ({},{},{}) with {} frames",
+                    player.getName().getString(), deathX, deathY, deathZ, buffer.size());
+
+            player.sendSystemMessage(Component.translatable("ghostofyou.ghost_spawned",
+                    (int) deathX, (int) deathY, (int) deathZ, buffer.size()));
+        } finally {
+            recorder.rebuildBuffer();
         }
-
-        GhostEntity ghost = ModEntities.GHOST.get().create(level);
-        if (ghost == null) return;
-
-        ghost.initFromRecording(player, deathX, deathY, deathZ, buffer, eventLog.getAll());
-
-        // Store death cause so Ghost Essence tooltip shows the actual cause (e.g. "fall", "player")
-        String deathCauseKey = "death.attack." + event.getSource().getMsgId();
-        ghost.setDeathCauseKey(deathCauseKey);
-
-        enforceChunkCap(level, deathX, deathZ);
-        enforcePlayerCap(level, player.getUUID());
-
-        level.addFreshEntity(ghost);
-
-        SoulCrystalEntity crystal = ModEntities.SOUL_CRYSTAL.get().create(level);
-        if (crystal != null) {
-            crystal.setPos(deathX, deathY, deathZ);
-            crystal.setLinkedGhostUUID(ghost.getUUID());
-            crystal.setOwnerName(player.getName().getString());
-            level.addFreshEntity(crystal);
-        }
-
-        ModLogger.SPAWN.info("Spawned ghost of {} at ({},{},{}) with {} frames",
-                player.getName().getString(), deathX, deathY, deathZ, buffer.size());
-
-        player.sendSystemMessage(Component.translatable("ghostofyou.ghost_spawned",
-                (int) deathX, (int) deathY, (int) deathZ, buffer.size()));
-
-        recorder.rebuildBuffer();
     }
 
     private static void enforceChunkCap(ServerLevel level, double deathX, double deathZ) {

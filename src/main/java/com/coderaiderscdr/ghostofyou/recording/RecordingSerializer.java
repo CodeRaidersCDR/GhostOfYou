@@ -1,6 +1,6 @@
 package com.coderaiderscdr.ghostofyou.recording;
 
-import com.coderaiderscdr.ghostofyou.GhostOfYou;
+import com.coderaiderscdr.ghostofyou.util.ModLogger;
 import net.minecraft.nbt.CompoundTag;
 
 import java.io.ByteArrayInputStream;
@@ -48,7 +48,7 @@ public final class RecordingSerializer {
             stored     = baos.toByteArray();
             compressed = true;
         } catch (IOException e) {
-            GhostOfYou.LOGGER.warn("Failed to compress recording frames; storing raw", e);
+            ModLogger.RECORDING.warn("Failed to compress recording frames; storing raw", e);
             stored = raw;
         }
 
@@ -76,7 +76,7 @@ public final class RecordingSerializer {
         try (GZIPInputStream gzip = new GZIPInputStream(new ByteArrayInputStream(stored))) {
             return gzip.readAllBytes();
         } catch (IOException e) {
-            GhostOfYou.LOGGER.error("Failed to decompress recording frames", e);
+            ModLogger.RECORDING.error("Failed to decompress recording frames", e);
             return stored; // fallback: treat as uncompressed
         }
     }

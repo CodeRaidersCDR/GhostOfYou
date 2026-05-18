@@ -86,7 +86,6 @@ public final class GhostInteraction {
                 // Write ghost metadata into NBT
                 net.minecraft.nbt.CompoundTag meta = new net.minecraft.nbt.CompoundTag();
                 meta.putString("ghostName",        ghost.getOwnerName());
-                meta.putString("deathCauseKey",    ghost.getDeathCauseKey());
                 long lifespan = (sl.getGameTime() - ghost.getCreationTime()) / 1200L; // minutes
                 meta.putLong  ("lifespanMinutes",  lifespan);
                 essence.setTag(meta);

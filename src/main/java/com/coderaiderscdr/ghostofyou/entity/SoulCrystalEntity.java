@@ -101,10 +101,11 @@ public class SoulCrystalEntity extends Entity {
     // ------------------------------------------------------------------
 
     @Override
-    public boolean isPickable() { return true; }
+    public boolean isPickable() { return true; } // keep right-click interaction
 
+    /** No physical collision — players walk through the crystal at the death point. */
     @Override
-    public boolean canBeCollidedWith() { return true; }
+    public boolean canBeCollidedWith() { return false; }
 
     @Override
     public boolean isAttackable() { return false; }

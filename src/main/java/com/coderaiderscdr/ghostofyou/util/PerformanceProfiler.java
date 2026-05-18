@@ -1,6 +1,6 @@
 package com.coderaiderscdr.ghostofyou.util;
 
-import com.coderaiderscdr.ghostofyou.GhostOfYou;
+import com.coderaiderscdr.ghostofyou.util.ModLogger;
 
 import java.util.DoubleSummaryStatistics;
 import java.util.concurrent.atomic.AtomicLong;
@@ -42,7 +42,7 @@ public final class PerformanceProfiler {
         if (ghostTickSamples == 0) return;
         double avgMs  = ghostTickTotalNs / ghostTickSamples / 1_000_000.0;
         double maxMs  = ghostTickMaxNs / 1_000_000.0;
-        GhostOfYou.LOGGER.info(
+        ModLogger.LIFECYCLE.info(
                 "[GhostOfYou][Profiler] ghost-tick over {} samples: avg={:.3f}ms max={:.3f}ms",
                 ghostTickSamples, avgMs, maxMs);
     }
