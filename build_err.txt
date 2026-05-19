@@ -1,2 +1,0 @@
-Picked up _JAVA_OPTIONS: -Xmx12288M
-Picked up _JAVA_OPTIONS: -Xmx12288M

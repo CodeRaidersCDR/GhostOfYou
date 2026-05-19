@@ -28,3 +28,6 @@ Thumbs.db
 
 # Generated sources  
 /src/generated/
+
+build_*.txt
+build*.txt
