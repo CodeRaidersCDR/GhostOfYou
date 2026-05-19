@@ -8,6 +8,8 @@ import com.coderaiderscdr.ghostofyou.event.PlayerDeathHandler;
 import com.coderaiderscdr.ghostofyou.event.PlayerTickHandler;
 import com.coderaiderscdr.ghostofyou.event.ServerTickHandler;
 import com.coderaiderscdr.ghostofyou.item.ModItems;
+import com.coderaiderscdr.ghostofyou.item.ModPotions;
+import com.coderaiderscdr.ghostofyou.loot.ModLootModifiers;
 import com.coderaiderscdr.ghostofyou.network.ModNetwork;
 import com.coderaiderscdr.ghostofyou.sound.ModSounds;
 import net.minecraftforge.common.MinecraftForge;
@@ -32,25 +34,31 @@ public class GhostOfYou {
         ModConfig.register(ModLoadingContext.get());
 
         ModItems.ITEMS.register(modBus);
+        ModItems.CREATIVE_MODE_TABS.register(modBus);
         ModBlocks.BLOCKS.register(modBus);
         ModBlocks.BLOCK_ITEMS.register(modBus);
+        ModBlocks.BLOCK_ENTITY_TYPES.register(modBus);
         ModEntities.ENTITY_TYPES.register(modBus);
         ModSounds.SOUNDS.register(modBus);
+        ModPotions.MOB_EFFECTS.register(modBus);
+        ModPotions.POTIONS.register(modBus);
+        ModLootModifiers.LOOT_MODIFIER_SERIALIZERS.register(modBus);
 
         modBus.addListener(this::commonSetup);
 
-        // Forge event bus — game events
         MinecraftForge.EVENT_BUS.register(PlayerDeathHandler.class);
         MinecraftForge.EVENT_BUS.register(PlayerTickHandler.class);
         MinecraftForge.EVENT_BUS.register(BlockActionHandler.class);
         MinecraftForge.EVENT_BUS.register(ServerTickHandler.class);
 
-        // Client-only registration via DistExecutor to avoid server-side class loading
         DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT,
                 () -> () -> com.coderaiderscdr.ghostofyou.client.GhostOfYouClient.register(modBus));
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
-        event.enqueueWork(ModNetwork::register);
+        event.enqueueWork(() -> {
+            ModNetwork.register();
+            ModPotions.registerBrewingRecipes();
+        });
     }
 }

@@ -9,10 +9,6 @@ import java.io.IOException;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-/**
- * Serialises / deserialises a recording (frame buffer + event log) to/from
- * NBT. Frame data is GZIP-compressed to minimise chunk file sizes.
- */
 public final class RecordingSerializer {
 
     private static final String KEY_FRAMES      = "frames";
@@ -21,17 +17,6 @@ public final class RecordingSerializer {
 
     private RecordingSerializer() {}
 
-    // ------------------------------------------------------------------
-    // Save
-    // ------------------------------------------------------------------
-
-    /**
-     * Serialise a recording to a {@link CompoundTag}.
-     *
-     * @param buffer    the frame buffer (all recorded frames)
-     * @param ownerName the player's display name at the time of recording
-     * @return NBT compound ready to embed in {@code GhostEntity} NBT
-     */
     public static CompoundTag save(CircularFrameBuffer buffer, String ownerName) {
         CompoundTag tag = new CompoundTag();
         tag.putString(KEY_OWNER_NAME, ownerName);
@@ -57,16 +42,6 @@ public final class RecordingSerializer {
         return tag;
     }
 
-    // ------------------------------------------------------------------
-    // Load
-    // ------------------------------------------------------------------
-
-    /**
-     * Deserialise frame bytes from an NBT compound.
-     *
-     * @param tag the recording compound previously created by {@link #save}
-     * @return raw frame bytes (oldest → newest), may be empty
-     */
     public static byte[] loadFrameBytes(CompoundTag tag) {
         byte[] stored     = tag.getByteArray(KEY_FRAMES);
         boolean compressed = tag.getBoolean(KEY_COMPRESSED);
@@ -77,11 +52,10 @@ public final class RecordingSerializer {
             return gzip.readAllBytes();
         } catch (IOException e) {
             GhostOfYou.LOGGER.error("Failed to decompress recording frames", e);
-            return stored; // fallback: treat as uncompressed
+            return stored;
         }
     }
 
-    /** Extract the owner display name from a recording tag. */
     public static String loadOwnerName(CompoundTag tag) {
         return tag.getString(KEY_OWNER_NAME);
     }

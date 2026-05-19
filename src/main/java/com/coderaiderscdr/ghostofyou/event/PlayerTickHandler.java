@@ -13,22 +13,11 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Manages the per-player {@link PlayerRecorder} lifecycle and drives recorder ticks.
- *
- * <p>One recorder is created when the player logs in and destroyed on logout.
- * Recorders are ticked on the server side in {@link TickEvent.PlayerTickEvent}.
- */
 public class PlayerTickHandler {
 
-    /** Server-side map: player UUID → active recorder. */
     private static final Map<UUID, PlayerRecorder> RECORDERS = new ConcurrentHashMap<>();
 
     private PlayerTickHandler() {}
-
-    // ------------------------------------------------------------------
-    // Lifecycle
-    // ------------------------------------------------------------------
 
     @SubscribeEvent
     public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
@@ -42,14 +31,20 @@ public class PlayerTickHandler {
         RECORDERS.remove(event.getEntity().getUUID());
     }
 
-    // ------------------------------------------------------------------
-    // Tick
-    // ------------------------------------------------------------------
+    @SubscribeEvent
+    public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        if (event.getEntity() instanceof ServerPlayer newPlayer) {
+            RECORDERS.put(newPlayer.getUUID(), new PlayerRecorder(newPlayer));
+        }
+    }
 
-    /**
-     * Drive all active recorders once per server tick.
-     * HOT PATH — called 20 × per second per online player.
-     */
+    @SubscribeEvent
+    public static void onPlayerClone(PlayerEvent.Clone event) {
+        if (!event.isWasDeath() && event.getEntity() instanceof ServerPlayer newPlayer) {
+            RECORDERS.put(newPlayer.getUUID(), new PlayerRecorder(newPlayer));
+        }
+    }
+
     @SubscribeEvent
     public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
@@ -61,20 +56,11 @@ public class PlayerTickHandler {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Queries
-    // ------------------------------------------------------------------
-
-    /**
-     * Get the recorder for a player UUID, or {@code null} if the player
-     * is not currently online.
-     */
     @Nullable
     public static PlayerRecorder getRecorder(UUID playerId) {
         return RECORDERS.get(playerId);
     }
 
-    /** Unmodifiable snapshot of all active recorders. */
     public static Collection<PlayerRecorder> getAllRecorders() {
         return Collections.unmodifiableCollection(RECORDERS.values());
     }

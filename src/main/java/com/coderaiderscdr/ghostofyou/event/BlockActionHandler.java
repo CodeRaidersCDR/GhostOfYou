@@ -7,9 +7,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
-/**
- * Records block break / place events into the active {@link PlayerRecorder}.
- */
 public class BlockActionHandler {
 
     private BlockActionHandler() {}

@@ -1,13 +1,14 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    "   ",
-    " G ",
-    "SSS"
+    " S ",
+    "SES",
+    "PPP"
   ],
   "key": {
-    "G": { "item": "ghostofyou:ghost_essence" },
-    "S": { "item": "minecraft:stone" }
+    "S": { "item": "minecraft:soul_soil" },
+    "E": { "item": "ghostofyou:ghost_essence" },
+    "P": { "item": "minecraft:polished_blackstone" }
   },
   "result": {
     "item": "ghostofyou:memorial_block",

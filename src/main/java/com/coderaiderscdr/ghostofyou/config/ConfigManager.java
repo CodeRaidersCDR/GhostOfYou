@@ -1,17 +1,8 @@
 package com.coderaiderscdr.ghostofyou.config;
 
-/**
- * Convenience façade for reading config values.
- * Centralises all config access so that call sites don't need to import both
- * ModConfig.COMMON and ModConfig.CLIENT.
- */
 public final class ConfigManager {
 
     private ConfigManager() {}
-
-    // ------------------------------------------------------------------
-    // Common / server-side
-    // ------------------------------------------------------------------
 
     public static boolean isRecordingEnabled() {
         return ModConfig.COMMON.enableRecording.get();
@@ -52,10 +43,6 @@ public final class ConfigManager {
     public static boolean recordCombat() {
         return ModConfig.COMMON.recordCombat.get();
     }
-
-    // ------------------------------------------------------------------
-    // Client-side
-    // ------------------------------------------------------------------
 
     public static float ghostTransparency() {
         return ModConfig.CLIENT.ghostTransparency.get().floatValue();

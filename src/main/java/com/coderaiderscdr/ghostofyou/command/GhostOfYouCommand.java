@@ -23,18 +23,6 @@ import net.minecraftforge.fml.common.Mod;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Admin commands for Ghost of You (requires permission level 2).
- *
- * <ul>
- *   <li>{@code /ghostofyou remove player <player>}</li>
- *   <li>{@code /ghostofyou remove all}</li>
- *   <li>{@code /ghostofyou remove nearby <radius>}</li>
- *   <li>{@code /ghostofyou list}</li>
- *   <li>{@code /ghostofyou pause <true|false>}</li>
- *   <li>{@code /ghostofyou stats}</li>
- * </ul>
- */
 @Mod.EventBusSubscriber(modid = GhostOfYou.MOD_ID)
 public class GhostOfYouCommand {
 
@@ -45,11 +33,6 @@ public class GhostOfYouCommand {
         register(event.getDispatcher());
     }
 
-    /**
-     * Register all sub-commands on the Brigadier dispatcher.
-     *
-     * @param dispatcher the server's command dispatcher
-     */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
                 Commands.literal("ghostofyou")
@@ -80,10 +63,6 @@ public class GhostOfYouCommand {
         );
     }
 
-    // ------------------------------------------------------------------
-    // Remove by player
-    // ------------------------------------------------------------------
-
     private static int removeByPlayer(CommandSourceStack src, ServerPlayer target) {
         UUID ownerUUID = target.getUUID();
         ServerLevel level = src.getLevel();
@@ -99,10 +78,6 @@ public class GhostOfYouCommand {
         return count[0];
     }
 
-    // ------------------------------------------------------------------
-    // Remove all
-    // ------------------------------------------------------------------
-
     private static int removeAll(CommandSourceStack src) {
         ServerLevel level = src.getLevel();
         int[] count = {0};
@@ -116,10 +91,6 @@ public class GhostOfYouCommand {
         src.sendSuccess(() -> Component.translatable("ghostofyou.command.removed", count[0]), true);
         return count[0];
     }
-
-    // ------------------------------------------------------------------
-    // Remove nearby
-    // ------------------------------------------------------------------
 
     private static int removeNearby(CommandSourceStack src, double radius) {
         Vec3 pos = src.getPosition();
@@ -137,10 +108,6 @@ public class GhostOfYouCommand {
         return count;
     }
 
-    // ------------------------------------------------------------------
-    // List
-    // ------------------------------------------------------------------
-
     private static int list(CommandSourceStack src) {
         ServerLevel level = src.getLevel();
         List<GhostEntity> ghosts = new java.util.ArrayList<>();
@@ -156,19 +123,11 @@ public class GhostOfYouCommand {
         return ghosts.size();
     }
 
-    // ------------------------------------------------------------------
-    // Pause
-    // ------------------------------------------------------------------
-
     private static int setPaused(CommandSourceStack src, boolean paused) {
         ModConfig.COMMON.pauseAllPlayback.set(paused);
         src.sendSuccess(() -> Component.translatable("ghostofyou.command.paused", paused), true);
         return paused ? 1 : 0;
     }
-
-    // ------------------------------------------------------------------
-    // Stats
-    // ------------------------------------------------------------------
 
     private static int stats(CommandSourceStack src) {
         src.sendSuccess(() -> Component.translatable("ghostofyou.command.stats.header"), false);

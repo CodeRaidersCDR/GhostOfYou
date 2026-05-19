@@ -1,15 +1,15 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "equipment",
   "pattern": [
-    " E ",
-    "SAS",
-    " R "
+    " G ",
+    "GBG",
+    " S "
   ],
   "key": {
-    "E": { "item": "minecraft:ender_eye" },
-    "A": { "item": "minecraft:amethyst_shard" },
-    "S": { "item": "minecraft:soul_sand" },
-    "R": { "item": "minecraft:blaze_rod" }
+    "G": { "item": "minecraft:ghast_tear" },
+    "B": { "item": "ghostofyou:ghost_essence" },
+    "S": { "item": "minecraft:blaze_rod" }
   },
   "result": {
     "item": "ghostofyou:ghost_banisher",

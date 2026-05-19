@@ -22,10 +22,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Listens for player death events and spawns a {@link GhostEntity} at the
- * death location, seeded with the player's recording buffer.
- */
 public class PlayerDeathHandler {
 
     private PlayerDeathHandler() {}
@@ -70,9 +66,11 @@ public class PlayerDeathHandler {
 
         ghost.initFromRecording(player, deathX, deathY, deathZ, buffer, eventLog.getAll());
 
-        // Store death cause so Ghost Essence tooltip shows the actual cause (e.g. "fall", "player")
-        String deathCauseKey = "death.attack." + event.getSource().getMsgId();
-        ghost.setDeathCauseKey(deathCauseKey);
+        String cause  = event.getSource().getMsgId();
+        String killer = event.getSource().getEntity() != null
+                ? event.getSource().getEntity().getName().getString()
+                : "";
+        ghost.setDeathContext(cause, killer, level.getGameTime());
 
         enforceChunkCap(level, deathX, deathZ);
         enforcePlayerCap(level, player.getUUID());

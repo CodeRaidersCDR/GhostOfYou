@@ -5,23 +5,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
 
-/**
- * Dedicated logger for Ghost of You mod.
- *
- * <p>All log lines are tagged with the {@code GhostOfYou} marker so they can
- * be filtered out of the main Forge log easily:
- * <pre>
- *   tail -f logs/latest.log | grep GhostOfYou
- * </pre>
- *
- * <p>Use sub-loggers for clearer categories:
- * <ul>
- *   <li>{@link #PLAYBACK} — every playback tick, frame movement</li>
- *   <li>{@link #RECORDING} — frame capture, buffer state</li>
- *   <li>{@link #SPAWN} — ghost / crystal spawn events</li>
- *   <li>{@link #LIFECYCLE} — mod load, config reload</li>
- * </ul>
- */
 public final class ModLogger {
 
     public static final Marker MARKER = MarkerManager.getMarker("GhostOfYou");

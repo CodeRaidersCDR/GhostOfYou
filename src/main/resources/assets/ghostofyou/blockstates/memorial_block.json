@@ -1,5 +1,8 @@
 {
   "variants": {
-    "": { "model": "ghostofyou:block/memorial_block" }
+    "facing=north": { "model": "ghostofyou:block/memorial_block" },
+    "facing=east":  { "model": "ghostofyou:block/memorial_block", "y": 90  },
+    "facing=south": { "model": "ghostofyou:block/memorial_block", "y": 180 },
+    "facing=west":  { "model": "ghostofyou:block/memorial_block", "y": 270 }
   }
 }

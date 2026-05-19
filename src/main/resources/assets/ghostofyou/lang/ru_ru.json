@@ -7,6 +7,19 @@
   "ghostofyou.ghost_banisher.tooltip_shift": "Удерживайте ПКМ на призраке 3 секунды",
   "ghostofyou.ghost_essence.tooltip": "Призрак %s, жил %d минут(ы), погиб от %s",
 
+  "item.ghostofyou.essence.owner": "Владелец: %s",
+  "item.ghostofyou.essence.lived": "Время жизни призрака: %d мин",
+  "item.ghostofyou.essence.died":  "Погиб от: %s",
+  "item.ghostofyou.ghost_banisher.recipe.tooltip": "Создаётся из слёз гаста, эссенции призрака и стержня повелителя огня.",
+
+  "block.ghostofyou.memorial_block.unbound": "[Мемориал] — Ещё не привязан к эссенции призрака.",
+  "block.ghostofyou.memorial_block.status":  "[Мемориал %s] — Жил %d мин., изгнан %d дней назад.",
+  "block.ghostofyou.memorial_block.bound":   "Мемориал привязан к призраку %s.",
+
+  "effect.ghostofyou.ethereal_form": "Эфирная форма",
+  "item.minecraft.potion.effect.ethereal_form": "Призрачное зелье",
+  "item.minecraft.potion.effect.ghostofyou.ethereal_form": "Призрачное зелье",
+
   "ghostofyou.command.removed": "Удалено %d призрак(ов).",
   "ghostofyou.command.list.header": "Призраки в измерении (%d всего):",
   "ghostofyou.command.list.entry": "  [%s] @ %.1f, %.1f, %.1f",
