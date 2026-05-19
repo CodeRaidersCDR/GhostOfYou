@@ -6,22 +6,10 @@ import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig.Type;
 import org.apache.commons.lang3.tuple.Pair;
 
-/**
- * Forge Config API wrapper for Ghost of You.
- * Two configs: common (server-side, synced) and client (client-only).
- */
 public class ModConfig {
-
-    // -------------------------------------------------------------------------
-    // Common config (ghostofyou-common.toml)
-    // -------------------------------------------------------------------------
 
     public static final CommonConfig COMMON;
     static final ForgeConfigSpec COMMON_SPEC;
-
-    // -------------------------------------------------------------------------
-    // Client config (ghostofyou-client.toml)
-    // -------------------------------------------------------------------------
 
     public static final ClientConfig CLIENT;
     static final ForgeConfigSpec CLIENT_SPEC;
@@ -38,40 +26,27 @@ public class ModConfig {
         CLIENT = clientPair.getLeft();
     }
 
-    /**
-     * Register configs with the mod loading context.
-     *
-     * @param ctx the mod loading context
-     */
     public static void register(ModLoadingContext ctx) {
         ctx.registerConfig(Type.COMMON, COMMON_SPEC, GhostOfYou.MOD_ID + "-common.toml");
         ctx.registerConfig(Type.CLIENT, CLIENT_SPEC, GhostOfYou.MOD_ID + "-client.toml");
     }
 
-    // =========================================================================
-    // Common config class
-    // =========================================================================
-
     public static final class CommonConfig {
 
-        // [general]
         public final ForgeConfigSpec.BooleanValue enableRecording;
         public final ForgeConfigSpec.BooleanValue enableGhostSpawning;
         public final ForgeConfigSpec.BooleanValue showExistingGhostsWhenDisabled;
         public final ForgeConfigSpec.BooleanValue pauseAllPlayback;
 
-        // [recording]
         public final ForgeConfigSpec.IntValue recordingDurationSeconds;
         public final ForgeConfigSpec.IntValue sampleIntervalTicks;
         public final ForgeConfigSpec.BooleanValue recordBlockActions;
         public final ForgeConfigSpec.BooleanValue recordCombat;
 
-        // [ghosts]
         public final ForgeConfigSpec.IntValue maxGhostsPerChunk;
         public final ForgeConfigSpec.IntValue maxGhostsPerPlayer;
         public final ForgeConfigSpec.IntValue playbackLoopDelayTicks;
 
-        // [performance] — server-side LOD settings
         public final ForgeConfigSpec.IntValue lodNearDistance;
         public final ForgeConfigSpec.IntValue lodFarDistance;
         public final ForgeConfigSpec.IntValue lodFreezeDistance;
@@ -137,13 +112,8 @@ public class ModConfig {
         }
     }
 
-    // =========================================================================
-    // Client config class
-    // =========================================================================
-
     public static final class ClientConfig {
 
-        // [rendering]
         public final ForgeConfigSpec.DoubleValue ghostTransparency;
         public final ForgeConfigSpec.BooleanValue ghostGlowing;
         public final ForgeConfigSpec.IntValue renderDistance;

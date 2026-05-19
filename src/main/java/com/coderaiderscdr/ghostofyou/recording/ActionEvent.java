@@ -3,13 +3,8 @@ package com.coderaiderscdr.ghostofyou.recording;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
-/**
- * Immutable action event stored alongside frame data.
- * Built with a fluent {@link Builder}.
- */
 public final class ActionEvent {
 
-    /** All supported action event types. */
     public enum Type {
         BREAK_BLOCK,
         PLACE_BLOCK,
@@ -22,25 +17,18 @@ public final class ActionEvent {
 
     public final Type type;
 
-    /** Block position — set for {@link Type#BREAK_BLOCK} and {@link Type#PLACE_BLOCK}. */
     public final BlockPos pos;
 
-    /** Block state — set for {@link Type#BREAK_BLOCK} and {@link Type#PLACE_BLOCK}. */
     public final BlockState blockState;
 
-    /** Entity registry key string — set for {@link Type#ATTACK_ENTITY}. */
     public final String entityTypeId;
 
-    /** Item registry key string — set for {@link Type#USE_ITEM}. */
     public final String itemId;
 
-    /** Damage amount — set for {@link Type#TAKE_DAMAGE}. */
     public final float damageAmount;
 
-    /** Damage source type string — set for {@link Type#TAKE_DAMAGE}. */
     public final String damageSourceType;
 
-    /** Slot index 0-8 — set for {@link Type#SWAP_ITEM}. */
     public final int newSlot;
 
     private ActionEvent(Builder b) {
@@ -54,14 +42,9 @@ public final class ActionEvent {
         this.newSlot         = b.newSlot;
     }
 
-    /** Start building an event of the given type. */
     public static Builder builder(Type type) {
         return new Builder(type);
     }
-
-    // ------------------------------------------------------------------
-    // Builder
-    // ------------------------------------------------------------------
 
     public static final class Builder {
         final Type type;

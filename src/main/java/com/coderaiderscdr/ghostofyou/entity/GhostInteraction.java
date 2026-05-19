@@ -19,40 +19,27 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Manages the server-side state of Ghost Banisher channeling.
- *
- * <p>When a player right-clicks a {@link GhostEntity} with a
- * {@link com.coderaiderscdr.ghostofyou.item.GhostBanisherItem} the entity calls
- * {@link #startBanishing}. The item's {@code onUseTick} / {@code finishUsingItem}
- * hooks then query and complete the banish via this class.
- */
+ 
+
 public final class GhostInteraction {
 
-    /** player UUID → UUID of the ghost being channeled */
+     
     private static final Map<UUID, UUID> activeBanishings = new HashMap<>();
 
     private GhostInteraction() {}
 
-    // ------------------------------------------------------------------
-    // Start / cancel / complete
-    // ------------------------------------------------------------------
+    
+    
+    
 
-    /**
-     * Begin a banishing interaction.
-     * Calls {@link Player#startUsingItem} so the item enters the "in-use" state
-     * and the game tracks the 60-tick duration automatically.
-     *
-     * @param player the player holding the banisher
-     * @param ghost  the ghost being targeted
-     * @param hand   the hand holding the banisher
-     */
+     
+
     public static void startBanishing(Player player, GhostEntity ghost, InteractionHand hand) {
-        if (activeBanishings.containsKey(player.getUUID())) return; // already channeling
+        if (activeBanishings.containsKey(player.getUUID())) return; 
         activeBanishings.put(player.getUUID(), ghost.getUUID());
         player.startUsingItem(hand);
 
-        // Play a random exorcist incantation (Minecraft picks one of the 4 variants)
+        
         if (player.level() instanceof net.minecraft.server.level.ServerLevel sl) {
             sl.playSound(null, ghost.blockPosition(),
                     ModSounds.GHOST_EXORCIST.get(), SoundSource.PLAYERS, 1.0f, 1.0f);
@@ -63,23 +50,16 @@ public final class GhostInteraction {
                 true);
     }
 
-    /**
-     * Cancel a banishing in progress (player moved or released use).
-     *
-     * @param playerId the player's UUID
-     */
+     
+
     public static void cancelBanishing(UUID playerId) {
         if (activeBanishings.remove(playerId) != null) {
-            // Message sent by releaseUsing in the item
+            
         }
     }
 
-    /**
-     * Complete a banishing: start death animation, schedule essence drop, play effect.
-     *
-     * @param player     the player
-     * @param stack      the Ghost Banisher item stack
-     */
+     
+
     public static void completeBanishing(Player player, ItemStack stack) {
         UUID ghostId = activeBanishings.remove(player.getUUID());
         if (ghostId == null) return;
@@ -88,7 +68,7 @@ public final class GhostInteraction {
         net.minecraft.world.entity.Entity entity = sl.getEntity(ghostId);
         if (!(entity instanceof GhostEntity ghost) || !ghost.isAlive()) return;
 
-        // Snapshot all ghost data before the entity is dismissed
+        
         final String ownerName    = ghost.getOwnerName();
         final String deathCause   = ghost.getDeathCauseKey();
         final String killerName   = ghost.getKillerName();
@@ -96,21 +76,21 @@ public final class GhostInteraction {
                 (sl.getGameTime() - ghost.getPlayerFirstLoginTime()) / 1200L);
         final long   banishedAt   = sl.getGameTime();
         final double gx = ghost.getX(), gy = ghost.getY(), gz = ghost.getZ();
-        // Capture recording before startBanishmentDeath() nulls the playbackController
+        
         final PlaybackController pc__ = ghost.getPlaybackController();
         final net.minecraft.nbt.CompoundTag recordingNbt = (pc__ != null) ? pc__.saveToNbt(gx, gy, gz) : null;
 
-        // Kick off the banishment death animation (stops playback, soul particles each tick)
+        
         ghost.startBanishmentDeath();
 
-        // Phase 1 particles + sounds happen immediately
+        
         playBanishmentPhase1(sl, gx, gy, gz);
 
-        // Phase 2 (end-rod beacon column) follows 10 ticks later
+        
         ServerTickHandler.scheduleDelayed(sl.getServer(), 10,
                 () -> playBanishmentPhase2(sl, gx, gy, gz));
 
-        // Essence drop + player reward execute after the full death animation
+        
         final ItemStack essenceStack = buildEssenceStack(
                 ownerName, deathCause, killerName, livedMinutes, banishedAt, recordingNbt);
         ServerTickHandler.scheduleDelayed(sl.getServer(),
@@ -144,13 +124,13 @@ public final class GhostInteraction {
         return essence;
     }
 
-    // ------------------------------------------------------------------
-    // Banishment visual effect
-    // ------------------------------------------------------------------
+    
+    
+    
 
-    /** Phase 1: soul-fire spiral + imploding sphere + lightning bolt + layered sounds. */
+     
     private static void playBanishmentPhase1(ServerLevel level, double x, double y, double z) {
-        // Spiral of soul-fire flames rising upward
+        
         for (int i = 0; i < 80; i++) {
             double angle  = i * 0.3;
             double radius = 0.5 + i * 0.02;
@@ -161,7 +141,7 @@ public final class GhostInteraction {
                     x + dx, y + dy, z + dz, 1, 0, 0, 0, 0.0);
         }
 
-        // Inward-collapsing sphere of soul particles
+        
         for (int i = 0; i < 60; i++) {
             double theta = Math.random() * 2 * Math.PI;
             double phi   = Math.random() * Math.PI;
@@ -174,7 +154,7 @@ public final class GhostInteraction {
                     1, -dx * 0.1, -dy * 0.1, -dz * 0.1, 0.05);
         }
 
-        // Visual lightning bolt (no fire / damage)
+        
         LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(level);
         if (lightning != null) {
             lightning.moveTo(x, y, z);
@@ -182,7 +162,7 @@ public final class GhostInteraction {
             level.addFreshEntity(lightning);
         }
 
-        // Layered sounds: wither death + wither moan + thunder + beacon off
+        
         level.playSound(null, x, y, z, SoundEvents.WITHER_DEATH,
                 SoundSource.HOSTILE, 0.6f, 1.3f);
         level.playSound(null, x, y, z, SoundEvents.WITHER_AMBIENT,
@@ -193,7 +173,7 @@ public final class GhostInteraction {
                 SoundSource.HOSTILE, 1.2f, 0.6f);
     }
 
-    /** Phase 2: vertical end-rod column (soul beam rising to sky). */
+     
     private static void playBanishmentPhase2(ServerLevel level, double x, double y, double z) {
         for (int i = 0; i < 30; i++) {
             level.sendParticles(ParticleTypes.END_ROD,
@@ -201,20 +181,18 @@ public final class GhostInteraction {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Queries
-    // ------------------------------------------------------------------
+    
+    
+    
 
-    /**
-     * Return the UUID of the ghost being banished by this player, or
-     * {@code null} if none.
-     */
+     
+
     @Nullable
     public static UUID getTargetGhostId(UUID playerId) {
         return activeBanishings.get(playerId);
     }
 
-    /** Whether the player is currently channeling a banish. */
+     
     public static boolean isBanishing(UUID playerId) {
         return activeBanishings.containsKey(playerId);
     }

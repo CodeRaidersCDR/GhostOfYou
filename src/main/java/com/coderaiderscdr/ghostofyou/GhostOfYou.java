@@ -46,13 +46,11 @@ public class GhostOfYou {
 
         modBus.addListener(this::commonSetup);
 
-        // Forge event bus — game events
         MinecraftForge.EVENT_BUS.register(PlayerDeathHandler.class);
         MinecraftForge.EVENT_BUS.register(PlayerTickHandler.class);
         MinecraftForge.EVENT_BUS.register(BlockActionHandler.class);
         MinecraftForge.EVENT_BUS.register(ServerTickHandler.class);
 
-        // Client-only registration via DistExecutor to avoid server-side class loading
         DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT,
                 () -> () -> com.coderaiderscdr.ghostofyou.client.GhostOfYouClient.register(modBus));
     }

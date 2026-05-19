@@ -17,7 +17,6 @@ import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
-/** Renders {@link GhostEntity} as a translucent player-shaped figure. */
 public class GhostEntityRenderer extends LivingEntityRenderer<GhostEntity, PlayerModel<GhostEntity>> {
 
     private static final ResourceLocation GHOST_TEXTURE =

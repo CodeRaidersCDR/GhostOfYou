@@ -21,24 +21,13 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Ghost Banisher — hold right-click on a Ghost Entity for 3 seconds to
- * permanently remove it. Spawns portal particles and plays sound during channeling.
- *
- * <p>Durability: 50 uses. Repair material: amethyst shard (via Forge tag).
- */
 public class GhostBanisherItem extends Item {
 
-    /** Channeling duration in ticks (3 seconds at 20 TPS). */
     private static final int USE_DURATION = 60;
 
     public GhostBanisherItem(Properties props) {
         super(props);
     }
-
-    // ------------------------------------------------------------------
-    // Use mechanics
-    // ------------------------------------------------------------------
 
     @Override
     public int getUseDuration(ItemStack stack) {
@@ -50,22 +39,12 @@ public class GhostBanisherItem extends Item {
         return UseAnim.BOW;
     }
 
-    /**
-     * Only activate use if a ghost entity is being channeled server-side.
-     * Right-clicking on air/blocks does nothing.
-     */
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        // Use only starts via GhostEntity.mobInteract → GhostInteraction.startBanishing
-        // which calls player.startUsingItem() directly. Return PASS here so that
-        // clicking on air/blocks is a no-op.
+
         return InteractionResultHolder.pass(player.getItemInHand(hand));
     }
 
-    /**
-     * HOT PATH — called every tick while the player holds right-click.
-     * Spawns particles around the target ghost and plays the looping ambient sound.
-     */
     @Override
     public void onUseTick(Level level, LivingEntity entity, ItemStack stack, int remainingUseTicks) {
         if (!(entity instanceof Player player)) return;
@@ -74,7 +53,7 @@ public class GhostBanisherItem extends Item {
 
         UUID targetId = GhostInteraction.getTargetGhostId(player.getUUID());
         if (targetId == null) {
-            // Banishing was cancelled externally
+
             player.stopUsingItem();
             return;
         }
@@ -86,7 +65,6 @@ public class GhostBanisherItem extends Item {
             return;
         }
 
-        // Spawn portal particles around the ghost every 4 ticks
         if (remainingUseTicks % 4 == 0) {
             double x = ghost.getX(), y = ghost.getY() + 1.0, z = ghost.getZ();
             for (int i = 0; i < 5; i++) {
@@ -98,10 +76,6 @@ public class GhostBanisherItem extends Item {
         }
     }
 
-    /**
-     * Called when the full 60-tick duration completes.
-     * Banishes the ghost and damages the item.
-     */
     @Override
     public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity entity) {
         if (entity instanceof Player player && !level.isClientSide()) {
@@ -110,24 +84,16 @@ public class GhostBanisherItem extends Item {
         return stack;
     }
 
-    /**
-     * Called when the player releases right-click before the duration is up.
-     * Cancels the banishing.
-     */
     @Override
     public void releaseUsing(ItemStack stack, Level level, LivingEntity entity, int timeCharged) {
         if (entity instanceof Player player && !level.isClientSide()) {
             GhostInteraction.cancelBanishing(player.getUUID());
             player.displayClientMessage(
                     Component.translatable("ghostofyou.banish.cancelled"), true);
-            // 5-second cooldown even on cancel so the item can't be rapidly re-used
+
             player.getCooldowns().addCooldown(stack.getItem(), 100);
         }
     }
-
-    // ------------------------------------------------------------------
-    // Tooltip
-    // ------------------------------------------------------------------
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level,

@@ -12,9 +12,6 @@ import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 
-/**
- * Registers all items belonging to the Ghost of You mod.
- */
 public class ModItems {
 
     public static final DeferredRegister<Item> ITEMS =
@@ -23,7 +20,6 @@ public class ModItems {
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, GhostOfYou.MOD_ID);
 
-    /** Ghost Banisher — crafted weapon to permanently remove ghost entities. */
     public static final RegistryObject<Item> GHOST_BANISHER =
             ITEMS.register("ghost_banisher",
                     () -> new GhostBanisherItem(new Item.Properties()
@@ -31,7 +27,6 @@ public class ModItems {
                             .durability(50)
                             .rarity(Rarity.RARE)));
 
-    /** Ghost Essence — dropped by banished ghosts, used to craft the Memorial Block. */
     public static final RegistryObject<Item> GHOST_ESSENCE =
             ITEMS.register("ghost_essence",
                     () -> new GhostEssenceItem(new Item.Properties()

@@ -5,12 +5,6 @@ import com.coderaiderscdr.ghostofyou.GhostOfYou;
 import java.util.DoubleSummaryStatistics;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Lightweight performance profiler for the Ghost of You mod.
- *
- * <p>Enabled via {@code enablePerformanceProfiler = true} in the common config.
- * Reports aggregate statistics to the log every 200 ticks (≈10 seconds).
- */
 public final class PerformanceProfiler {
 
     private static final int REPORT_INTERVAL_TICKS = 200;
@@ -22,11 +16,6 @@ public final class PerformanceProfiler {
 
     private PerformanceProfiler() {}
 
-    /**
-     * Record a ghost-tick measurement.
-     *
-     * @param elapsedNs elapsed time in nanoseconds for the full ghost-tick pass
-     */
     public static void recordGhostTick(long elapsedNs) {
         ghostTickTotalNs += elapsedNs;
         ghostTickSamples++;

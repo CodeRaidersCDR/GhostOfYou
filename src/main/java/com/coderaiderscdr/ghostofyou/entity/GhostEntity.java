@@ -31,36 +31,22 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * The ghost entity — a translucent, looping playback of a dead player's
- * last N minutes of movement.
- *
- * <p>Design principles:
- * <ul>
- *   <li>Fully invulnerable — {@link #isInvulnerableTo} always returns {@code true}</li>
- *   <li>No physics — {@code noPhysics = true}</li>
- *   <li>No AI — {@link #aiStep()} is intentionally empty</li>
- *   <li>Persistent — {@link #isPersistenceRequired()} returns {@code true}</li>
- *   <li>Playback is visual-only — ghosts NEVER modify the world</li>
- * </ul>
- *
- * Playback is driven from {@link #tick()} on the server side with LOD-aware
- * scheduling.
- */
+ 
+
 public class GhostEntity extends Monster {
 
-    // ------------------------------------------------------------------
-    // SynchedEntityData keys
-    // ------------------------------------------------------------------
+    
+    
+    
 
     private static final EntityDataAccessor<String> DATA_OWNER_NAME =
             SynchedEntityData.defineId(GhostEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Integer> DATA_DYING_TICKS =
             SynchedEntityData.defineId(GhostEntity.class, EntityDataSerializers.INT);
 
-    // ------------------------------------------------------------------
-    // NBT keys
-    // ------------------------------------------------------------------
+    
+    
+    
 
     private static final String NBT_OWNER_UUID         = "OwnerUUID";
     private static final String NBT_OWNER_NAME         = "OwnerName";
@@ -73,12 +59,12 @@ public class GhostEntity extends Monster {
     private static final String NBT_KILLER_NAME        = "KillerName";
     private static final String NBT_PLAYER_FIRST_LOGIN = "PlayerFirstLoginTime";
 
-    /** Duration of the banishment death animation in ticks (2 s). */
+     
     public static final int DEATH_ANIMATION_DURATION = 40;
 
-    // ------------------------------------------------------------------
-    // Fields
-    // ------------------------------------------------------------------
+    
+    
+    
 
     @Nullable private UUID ownerUUID;
     private double deathX, deathY, deathZ;
@@ -87,37 +73,36 @@ public class GhostEntity extends Monster {
     private String killerName = "";
     private long   playerFirstLoginTime = 0L;
 
-    /** Counts ticks since banishment death animation began (0 = not dying). */
+     
     private int dyingTicks = 0;
-    /** True when dying due to loop end (reset instead of discard). */
+     
     private boolean loopDeath = false;
 
-
-    /** Set to true when triggerEndOfPlaybackDeath() is called to allow kill() through. */
+     
     private transient boolean dyingState = false;
 
     @Nullable private PlaybackController playbackController;
     private long lastPlaybackGameTick = Long.MIN_VALUE;
 
-    // ------------------------------------------------------------------
-    // Constructor
-    // ------------------------------------------------------------------
+    
+    
+    
 
     public GhostEntity(EntityType<? extends GhostEntity> type, Level level) {
         super(type, level);
-        // NOTE: do NOT set noPhysics = true here. Use noGravity + travel override
-        // instead, so that vanilla position sync still works on the client.
+        
+        
         this.setNoGravity(true);
         this.setInvulnerable(true);
         this.setPersistenceRequired();
-        this.setNoAi(true);          // disables goal selector AND mob navigation
+        this.setNoAi(true);          
     }
 
-    // ------------------------------------------------------------------
-    // Attributes
-    // ------------------------------------------------------------------
+    
+    
+    
 
-    /** Register minimal attributes so LivingEntity machinery is satisfied. */
+     
     public static AttributeSupplier.Builder createAttributes() {
         return Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0)
@@ -126,9 +111,9 @@ public class GhostEntity extends Monster {
                 .add(Attributes.ARMOR, 0.0);
     }
 
-    // ------------------------------------------------------------------
-    // Synched data
-    // ------------------------------------------------------------------
+    
+    
+    
 
     @Override
     protected void defineSynchedData() {
@@ -137,21 +122,12 @@ public class GhostEntity extends Monster {
         this.entityData.define(DATA_DYING_TICKS, 0);
     }
 
-    // ------------------------------------------------------------------
-    // Initialisation (called once when spawning a new ghost)
-    // ------------------------------------------------------------------
+    
+    
+    
 
-    /**
-     * Populate the ghost from a freshly-captured recording.
-     * Must be called server-side before the entity is added to the world.
-     *
-     * @param player   the player who just died
-     * @param deathX   X coordinate of death
-     * @param deathY   Y coordinate of death
-     * @param deathZ   Z coordinate of death
-     * @param buffer   the player's frame buffer at the moment of death
-     * @param events   the player's action event log at the moment of death
-     */
+     
+
     public void initFromRecording(ServerPlayer player,
                                   double deathX, double deathY, double deathZ,
                                   CircularFrameBuffer buffer,
@@ -174,29 +150,22 @@ public class GhostEntity extends Monster {
         this.setPos(start[0], start[1], start[2]);
     }
 
-    // ------------------------------------------------------------------
-    // Override — suppress AI and physics
-    // ------------------------------------------------------------------
+    
+    
+    
 
-    /** Ghost has no AI goals. */
+     
     @Override
-    protected void registerGoals() { /* intentionally empty */ }
+    protected void registerGoals() {   }
 
-    /**
-     * IMPORTANT: Do NOT override aiStep() with empty body.
-     * Vanilla Mob.aiStep() handles client-side lerpSteps interpolation —
-     * removing it makes the ghost ignore server position packets.
-     *
-     * Goals are not registered, and setNoAi(true) is set in constructor,
-     * so no AI logic actually runs.
-     */
+     
 
     @Override
     public void tick() {
         super.tick();
         this.setNoGravity(true);
 
-        // Banishment death animation — runs until DEATH_ANIMATION_DURATION ticks
+        
         if (dyingTicks > 0) {
             dyingTicks++;
             this.entityData.set(DATA_DYING_TICKS, dyingTicks);
@@ -207,7 +176,7 @@ public class GhostEntity extends Monster {
             }
             if (dyingTicks >= DEATH_ANIMATION_DURATION) {
             if (loopDeath) {
-                // Loop death: reset playback and restart animation
+                
                 loopDeath = false;
                 dyingTicks = 0;
                 this.entityData.set(DATA_DYING_TICKS, 0);
@@ -223,123 +192,97 @@ public class GhostEntity extends Monster {
             return;
         }
 
-        // Normal: update walk animation (driven by playback deltas).
+        
         Vec3 delta = this.getDeltaMovement();
         float horizontalSpeed = (float) Math.sqrt(delta.x * delta.x + delta.z * delta.z);
         float animSpeed = Math.min(1.0f, horizontalSpeed * 4.0f);
         this.walkAnimation.update(animSpeed, 0.4f);
     }
 
-    /**
-     * Block vanilla physics (gravity, momentum). Position is set exclusively
-     * by PlaybackController via setPos(). Without this override,
-     * LivingEntity.travel() would apply gravity each tick.
-     */
+     
+
     @Override
     public void travel(Vec3 travelVector) {
         if (this.isAlive()) {
-            // Intentionally no movement application. Keep delta movement as set
-            // by playback controller (used for walk animation speed).
+            
+            
             this.calculateEntityAnimation(false);
         }
-        // During death animation let vanilla handle position (entity tips over in place).
+        
     }
 
-    /** Ghost never takes damage — unless {@link #triggerEndOfPlaybackDeath()} was called. */
+     
     @Override
     public boolean isInvulnerableTo(DamageSource source) { return !dyingState; }
 
-    /** Ghost cannot be leashed. */
+     
     @Override
     public boolean canBeLeashed(Player player) { return false; }
 
-    /** Ghost does not push or get pushed. */
+     
     @Override
     public boolean isPushable() { return false; }
 
-    /** Ghost never despawns naturally. */
+     
     @Override
     public boolean isPersistenceRequired() { return true; }
 
     @Override
     public boolean isPickable() { return true; }
 
-    /** Ghost drops nothing directly through normal loot (banisher awards essence manually). */
+     
     @Override
-    protected void dropAllDeathLoot(DamageSource damageSource) { /* no-op */ }
+    protected void dropAllDeathLoot(DamageSource damageSource) {   }
 
-    /**
-     * Called by {@link PlaybackController} when the last recorded frame has been
-     * played back (the ghost has "re-lived" its death).
-     * Bypasses {@link #isInvulnerableTo} and triggers the vanilla death animation,
-     * after which the entity is automatically removed.
-     */
+     
+
     void triggerEndOfPlaybackDeath() {
         if (!this.isAlive()) return;
         this.dyingState = true;
-        this.kill(); // hurt(genericKill, MAX_FLOAT) → die() → 20-tick death anim
+        this.kill(); 
     }
 
-    /**
-     * Begin the banishment death animation: stops playback, emits soul particles
-     * every tick for {@link #DEATH_ANIMATION_DURATION} ticks, then discards.
-     */
+     
+
     public void startBanishmentDeath() {
-        if (dyingTicks > 0) return; // already dying
+        if (dyingTicks > 0) return; 
         this.dyingTicks = 1;
-        this.playbackController = null;     // stop playback immediately
+        this.playbackController = null;     
         this.entityData.set(DATA_DYING_TICKS, 1);
     }
 
-    /**
-     * Begin the loop death animation: ghost tilts+fades for DEATH_ANIMATION_DURATION
-     * ticks, then resets to the start of its recording and loops again.
-     */
+     
+
     public void startLoopDeathAnimation() {
-        if (dyingTicks > 0) return; // already dying
+        if (dyingTicks > 0) return; 
         this.loopDeath = true;
         this.dyingTicks = 1;
         this.entityData.set(DATA_DYING_TICKS, 1);
     }
 
-    /** Whether this ghost is currently playing its banishment death animation. */
+     
     public boolean isDying() { return entityData.get(DATA_DYING_TICKS) > 0; }
 
-    /** Returns a value in [0, 1] representing animation progress (0 = just started, 1 = finished). */
+     
     public float getDyingProgress() {
         int ticks = entityData.get(DATA_DYING_TICKS);
         return Math.min(1.0f, ticks / (float) DEATH_ANIMATION_DURATION);
     }
 
-    /**
-     * Store death context so Ghost Essence created from this ghost carries
-     * meaningful tooltip data.
-     *
-     * @param cause       damage-source message id (e.g. {@code "creeper"})
-     * @param killer      name of the entity that delivered the killing blow
-     * @param currentTick current game time (used to compute rough login time)
-     */
+     
+
     public void setDeathContext(String cause, String killer, long currentTick) {
         this.deathCauseKey = cause;
         this.killerName    = killer;
-        this.playerFirstLoginTime = currentTick - (currentTick % 24000); // start of current in-game day
+        this.playerFirstLoginTime = currentTick - (currentTick % 24000); 
     }
 
-    // ------------------------------------------------------------------
-    // Playback
-    // ------------------------------------------------------------------
+    
+    
+    
 
-    /**
-     * Advance playback by {@code stride} virtual game ticks.
-     * Called by {@link com.coderaiderscdr.ghostofyou.event.ServerTickHandler},
-     * which handles the LOD-based scheduling (near zone stride=1,
-     * mid zone stride=4, etc.).
-     *
-     * <p>Advancing by multiple virtual ticks at once compensates for skipped
-     * server ticks so the ghost stays temporally in sync with the recording.
-     *
-     * @param stride number of game-tick steps to advance (≥ 1)
-     */
+     
+
     public void tickPlayback(int stride) {
         if (playbackController == null) return;
         if (level().isClientSide()) return;
@@ -378,9 +321,9 @@ public class GhostEntity extends Monster {
         }
     }
 
-    // ------------------------------------------------------------------
-    // NBT persistence
-    // ------------------------------------------------------------------
+    
+    
+    
 
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
@@ -430,12 +373,12 @@ public class GhostEntity extends Monster {
                                                   MobSpawnType reason,
                                                   @Nullable SpawnGroupData spawnData,
                                                   @Nullable CompoundTag dataTag) {
-        return spawnData; // skip default spawning behaviour
+        return spawnData; 
     }
 
-    // ------------------------------------------------------------------
-    // Accessors
-    // ------------------------------------------------------------------
+    
+    
+    
 
     @Nullable public UUID getOwnerUUID() { return ownerUUID; }
 
@@ -447,7 +390,7 @@ public class GhostEntity extends Monster {
 
     public long getCreationTime() { return creationTime; }
 
-    /** Damage-source message ID for the original death (e.g. {@code "fall"}, {@code "creeper"}). */
+     
     public String getDeathCauseKey() { return deathCauseKey; }
     public void   setDeathCauseKey(String key) { this.deathCauseKey = key; }
     public String getKillerName() { return killerName; }
@@ -455,9 +398,9 @@ public class GhostEntity extends Monster {
 
     @Nullable public PlaybackController getPlaybackController() { return playbackController; }
 
-    // ------------------------------------------------------------------
-    // Interaction — handled by GhostInteraction
-    // ------------------------------------------------------------------
+    
+    
+    
 
     @Override
     protected net.minecraft.world.InteractionResult mobInteract(Player player,
@@ -472,9 +415,9 @@ public class GhostEntity extends Monster {
         return super.mobInteract(player, hand);
     }
 
-    // ------------------------------------------------------------------
-    // Glowing (based on client config, falls back to server tag)
-    // ------------------------------------------------------------------
+    
+    
+    
 
     @Override
     public boolean isCurrentlyGlowing() {

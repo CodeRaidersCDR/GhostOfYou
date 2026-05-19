@@ -2,31 +2,10 @@ package com.coderaiderscdr.ghostofyou.recording;
 
 import java.nio.ByteBuffer;
 
-/**
- * Static helpers for reading and writing 28-byte frames to/from a ByteBuffer.
- *
- * <p>Frame layout (exactly 28 bytes):
- * <pre>
- * Offset | Size | Type   | Field
- * -------+------+--------+--------------------------------
- *   0-1  |  2   | short  | tickDelta (ticks since prev frame)
- *   2-5  |  4   | float  | deltaX (relative to prev frame)
- *   6-9  |  4   | float  | deltaZ
- *  10-13 |  4   | float  | deltaY
- *  14-15 |  2   | short  | yaw × 100 (0.01° precision)
- *  16-17 |  2   | short  | pitch × 100
- *   18   |  1   | byte   | flags
- *   19   |  1   | byte   | heldItemSlot (0-8)
- *  20-23 |  4   | int    | actionEventId (0=none)
- *  24-27 |  4   | int    | blockStateId (for break/place, else 0)
- * </pre>
- */
 public final class Frame {
 
-    /** Exact size of one frame in bytes. */
     public static final int BYTES = 28;
 
-    // Flags bit masks
     public static final byte FLAG_SNEAK      = (byte) (1 << 0);
     public static final byte FLAG_SPRINT     = (byte) (1 << 1);
     public static final byte FLAG_SWIM       = (byte) (1 << 2);
@@ -39,14 +18,6 @@ public final class Frame {
 
     private Frame() {}
 
-    // ------------------------------------------------------------------
-    // Write — uses absolute byte addresses, safe on any ByteBuffer
-    // ------------------------------------------------------------------
-
-    /**
-     * Write a complete frame at slot {@code index} (0-based) of the buffer.
-     * Uses absolute addressing so the buffer's current position is never modified.
-     */
     public static void write(ByteBuffer buf, int index,
                              short tickDelta, float deltaX, float deltaZ, float deltaY,
                              short yawCenti, short pitchCenti, byte flags,
@@ -63,10 +34,6 @@ public final class Frame {
         buf.putInt (base + 20,  actionEventId);
         buf.putInt (base + 24,  blockStateId);
     }
-
-    // ------------------------------------------------------------------
-    // Read — absolute addressing, no position side-effects
-    // ------------------------------------------------------------------
 
     public static short readTickDelta(ByteBuffer buf, int index)      { return buf.getShort(index * BYTES); }
     public static float readDeltaX   (ByteBuffer buf, int index)      { return buf.getFloat(index * BYTES + 2); }

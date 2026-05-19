@@ -6,15 +6,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 
-/**
- * Registers the mod's {@link SimpleChannel} and all network packets.
- * Called during {@code FMLCommonSetupEvent} via {@code event.enqueueWork}.
- */
 public final class ModNetwork {
 
     private static final String PROTOCOL_VERSION = "1";
 
-    /** The mod's single network channel. */
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(GhostOfYou.MOD_ID, "main"),
             () -> PROTOCOL_VERSION,
@@ -23,7 +18,6 @@ public final class ModNetwork {
 
     private static int nextId = 0;
 
-    /** Called once from {@code FMLCommonSetupEvent}. */
     public static void register() {
         CHANNEL.messageBuilder(BanishGhostC2SPacket.class, nextId++,
                         net.minecraftforge.network.NetworkDirection.PLAY_TO_SERVER)

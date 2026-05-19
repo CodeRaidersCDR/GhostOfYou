@@ -15,21 +15,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Supplier;
 
-/**
- * Global loot modifier that appends a configurable number of a given item to any
- * loot table that passes the supplied conditions.
- *
- * <p>JSON format:
- * <pre>{@code
- * {
- *   "type": "ghostofyou:add_item",
- *   "conditions": [ ... ],
- *   "item": "ghostofyou:ghost_essence",
- *   "min": 1,
- *   "max": 2
- * }
- * }</pre>
- */
 public class AddItemModifier extends LootModifier {
 
     public static final Supplier<Codec<AddItemModifier>> CODEC = Suppliers.memoize(() ->

@@ -19,23 +19,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Block entity for the Memorial Block.
- *
- * <p>When bound to a Ghost Essence (right-click) it stores the owner's name,
- * death metadata, and—if the essence carries one—the compressed recording so
- * the client-side renderer can animate a mini ghost above the block.
- *
- * <p>Client sync: {@link #getUpdatePacket()} / {@link #getUpdateTag()} are
- * implemented so a block-update packet is sent to nearby clients whenever the
- * block entity changes (triggered by {@code level.sendBlockUpdated()} in
- * {@link com.coderaiderscdr.ghostofyou.block.MemorialBlock}).
- */
 public class MemorialBlockEntity extends BlockEntity {
-
-    // ------------------------------------------------------------------
-    // NBT keys
-    // ------------------------------------------------------------------
 
     private static final String NBT_BOUND_OWNER       = "BoundOwner";
     private static final String NBT_BANISHED_AT        = "BanishedAt";
@@ -44,10 +28,6 @@ public class MemorialBlockEntity extends BlockEntity {
     private static final String NBT_KILLER_NAME        = "KillerName";
     private static final String NBT_RECORDING          = "Recording";
 
-    // ------------------------------------------------------------------
-    // Fields
-    // ------------------------------------------------------------------
-
     private String    boundOwner       = "";
     private long      banishedAt       = 0L;
     private long      ownerLifeMinutes = 0L;
@@ -55,33 +35,16 @@ public class MemorialBlockEntity extends BlockEntity {
     private String    killerName       = "";
     @Nullable private CompoundTag recordingNbt = null;
 
-    // ------------------------------------------------------------------
-    // Constructor
-    // ------------------------------------------------------------------
-
     public MemorialBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlocks.MEMORIAL_BLOCK_ENTITY_TYPE.get(), pos, state);
     }
 
-    // ------------------------------------------------------------------
-    // Binding
-    // ------------------------------------------------------------------
-
-    /**
-     * Bind this memorial to a Ghost Essence item stack.
-     *
-     * <p>Reads {@code OwnerName}, {@code DeathCause}, {@code KillerName},
-     * {@code LivedMinutes}, {@code BanishedAt}, and the optional
-     * {@code Recording} compound from the essence NBT.
-     *
-     * @return {@code true} if binding succeeded (essence has a valid owner)
-     */
     public boolean bindToEssence(ItemStack essence) {
         CompoundTag tag = essence.getTag();
         if (tag == null) return false;
 
         String owner = tag.getString("OwnerName");
-        if (owner.isEmpty()) owner = tag.getString("ghostName"); // legacy key
+        if (owner.isEmpty()) owner = tag.getString("ghostName");
         if (owner.isEmpty()) return false;
 
         this.boundOwner       = owner;
@@ -96,10 +59,6 @@ public class MemorialBlockEntity extends BlockEntity {
         return true;
     }
 
-    // ------------------------------------------------------------------
-    // Accessors
-    // ------------------------------------------------------------------
-
     public boolean     isBound()         { return !boundOwner.isEmpty(); }
     public String      getBoundOwner()   { return boundOwner; }
     public long        getBanishedAt()   { return banishedAt; }
@@ -109,7 +68,6 @@ public class MemorialBlockEntity extends BlockEntity {
     @Nullable
     public CompoundTag getRecordingNbt() { return recordingNbt; }
 
-    /** Human-readable status line shown when the player right-clicks with an empty hand. */
     public Component getStatusMessage(long currentGameTime) {
         if (!isBound()) {
             return Component.translatable("block.ghostofyou.memorial_block.unbound");
@@ -119,23 +77,17 @@ public class MemorialBlockEntity extends BlockEntity {
                 boundOwner, ownerLifeMinutes, hoursAgo);
     }
 
-    // ------------------------------------------------------------------
-    // Server tick: soul-particle aura + player buff
-    // ------------------------------------------------------------------
-
     public static void serverTick(Level level, BlockPos pos, BlockState state,
                                   MemorialBlockEntity be) {
         if (!be.isBound()) return;
         long gameTick = level.getGameTime();
 
-        // Soul-fire particle aura every 2 s
         if (gameTick % 40 == 0 && level instanceof ServerLevel sl) {
             sl.sendParticles(ParticleTypes.SOUL,
                     pos.getX() + 0.5, pos.getY() + 1.2, pos.getZ() + 0.5,
                     2, 0.2, 0.1, 0.2, 0.01);
         }
 
-        // Buff players within 5 blocks — refresh every second
         if (gameTick % 20 == 0) {
             AABB area = new AABB(pos).inflate(5.0);
             for (Player player : level.getEntitiesOfClass(Player.class, area)) {
@@ -147,24 +99,15 @@ public class MemorialBlockEntity extends BlockEntity {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Client sync (block entity update packet)
-    // ------------------------------------------------------------------
-
     @Override
     public Packet<ClientGamePacketListener> getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
     }
 
-    /** Called by {@link #getUpdatePacket()}; sends the full NBT to the client. */
     @Override
     public CompoundTag getUpdateTag() {
         return saveWithoutMetadata();
     }
-
-    // ------------------------------------------------------------------
-    // NBT serialisation
-    // ------------------------------------------------------------------
 
     @Override
     public void saveAdditional(CompoundTag tag) {

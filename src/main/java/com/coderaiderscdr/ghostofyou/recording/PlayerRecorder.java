@@ -4,25 +4,16 @@ import com.coderaiderscdr.ghostofyou.config.ConfigManager;
 import com.coderaiderscdr.ghostofyou.util.ModLogger;
 import net.minecraft.server.level.ServerPlayer;
 
-/**
- * Per-player recorder. One instance is created when a player logs in and
- * destroyed when the player logs out.
- *
- * <p>The recorder maintains a {@link CircularFrameBuffer} (off-heap) and an
- * {@link ActionEventLog}. It is ticked by {@code PlayerTickHandler}.
- */
 public class PlayerRecorder {
 
     private final ServerPlayer player;
     private CircularFrameBuffer frameBuffer;
     private ActionEventLog eventLog;
 
-    // Previous-frame state (for delta encoding)
     private double prevX, prevY, prevZ;
     private float  prevYaw, prevPitch;
     private int    prevHeldSlot;
 
-    // Last position known to be "safe" (on ground / in water)
     private double lastSafeX, lastSafeY, lastSafeZ;
 
     private int tickSinceLastFrame = 0;
@@ -33,21 +24,15 @@ public class PlayerRecorder {
         rebuildBuffer();
     }
 
-    // ------------------------------------------------------------------
-    // Buffer lifecycle
-    // ------------------------------------------------------------------
-
-    /** Rebuild the buffer according to current config values. */
     public void rebuildBuffer() {
         int durationSec    = ConfigManager.recordingDurationSeconds();
         int sampleInterval = ConfigManager.sampleIntervalTicks();
         int capacity       = Math.max(1, durationSec * 20 / sampleInterval);
         this.frameBuffer   = new CircularFrameBuffer(capacity);
         this.eventLog      = new ActionEventLog();
-        this.initialized   = false;          // forces re-init on next captureFrame
+        this.initialized   = false;
         this.tickSinceLastFrame = 0;
-        // Explicitly reset delta-state to current player position so the first
-        // frame after respawn doesn't accumulate a stale dead-position delta.
+
         this.prevX    = player.getX();
         this.prevY    = player.getY();
         this.prevZ    = player.getZ();
@@ -59,14 +44,6 @@ public class PlayerRecorder {
         ModLogger.RECORDING.debug("Rebuilt buffer for {} cap={}", player.getName().getString(), capacity);
     }
 
-    // ------------------------------------------------------------------
-    // Tick
-    // ------------------------------------------------------------------
-
-    /**
-     * Called every server tick by {@code PlayerTickHandler}.
-     * HOT PATH — samples one frame every {@code sampleIntervalTicks} ticks.
-     */
     public void tick() {
         if (!ConfigManager.isRecordingEnabled()) return;
 
@@ -78,10 +55,6 @@ public class PlayerRecorder {
         captureFrame(ticksSincePreviousFrame);
     }
 
-    /**
-     * Capture the current state immediately, regardless of the configured sample
-     * interval. Used at death so the recording ends at the actual death pose.
-     */
     public void captureImmediateFrame() {
         int ticksSincePreviousFrame = Math.max(1, tickSinceLastFrame);
         tickSinceLastFrame = 0;
@@ -95,8 +68,6 @@ public class PlayerRecorder {
         short pitchCenti = (short) Math.round(pitch * 100f);
         byte flags = Frame.FLAG_ON_GROUND;
 
-        // Pretend the player walked 1 block forward then stopped — gives some
-        // visible movement in the playback so it's not a literal corpse.
         float dirX = -(float) Math.sin(Math.toRadians(yaw)) * 0.5f;
         float dirZ =  (float) Math.cos(Math.toRadians(yaw)) * 0.5f;
 
@@ -109,8 +80,7 @@ public class PlayerRecorder {
                 player.getName().getString(), x, y, z);
     }
 
-    /** Sample the player's current state and write one frame. */
-    private void captureFrame(int ticksSincePreviousFrame) { // HOT PATH
+    private void captureFrame(int ticksSincePreviousFrame) {
         double x   = player.getX();
         double y   = player.getY();
         double z   = player.getZ();
@@ -147,7 +117,6 @@ public class PlayerRecorder {
                 yawCenti, pitchCenti, flags,
                 (byte) slot, 0, 0);
 
-        // Track last safe position
         if (player.onGround() || player.isInWater()) {
             lastSafeX = x; lastSafeY = y; lastSafeZ = z;
         }
@@ -157,30 +126,15 @@ public class PlayerRecorder {
         prevHeldSlot = slot;
     }
 
-    // ------------------------------------------------------------------
-    // Action event recording
-    // ------------------------------------------------------------------
-
-    /**
-     * Record an action event that occurred this tick.
-     * The event is appended to the log; its ID can optionally be patched into the last frame.
-     *
-     * @param event the action event to record
-     */
     public void recordActionEvent(ActionEvent event) {
         if (!ConfigManager.isRecordingEnabled()) return;
         eventLog.append(event);
     }
 
-    // ------------------------------------------------------------------
-    // Accessors
-    // ------------------------------------------------------------------
-
     public CircularFrameBuffer getFrameBuffer() { return frameBuffer; }
     public ActionEventLog      getEventLog()    { return eventLog; }
     public ServerPlayer        getPlayer()      { return player; }
 
-    /** Last absolute position known to be safe (on ground or in water). */
     public double[] getLastSafePosition() {
         return new double[]{ lastSafeX, lastSafeY, lastSafeZ };
     }

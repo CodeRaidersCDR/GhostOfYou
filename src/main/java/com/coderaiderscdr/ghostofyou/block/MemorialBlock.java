@@ -27,27 +27,16 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Memorial Block — a persistent tribute to a banished ghost.
- *
- * <p>Right-click with a {@link ModItems#GHOST_ESSENCE Ghost Essence} to bind
- * the block to that ghost's data. Once bound, the block periodically emits
- * soul particles and grants nearby players a small Resistance + Speed buff.
- * Right-click with an empty hand to read the memorial's inscription.
- */
+ 
+
 public class MemorialBlock extends BaseEntityBlock {
 
-    /** Horizontal facing direction (which way the front face points). */
+     
     public static final DirectionProperty FACING =
             BlockStateProperties.HORIZONTAL_FACING;
 
-    /**
-     * Compound VoxelShape approximating the 3D model:
-     *  - base slab (1,0,1)-(15,2,15)
-     *  - main stele body (3,2,3)-(13,9,13)
-     *  - upper neck / ring (4,9,4)-(12,12,12)
-     *  - top plate (2,12,2)-(14,14,14)
-     */
+     
+
     private static final VoxelShape SHAPE = Shapes.or(
             Block.box( 1,  0,  1, 15,  2, 15),
             Block.box( 3,  2,  3, 13,  9, 13),
@@ -59,9 +48,9 @@ public class MemorialBlock extends BaseEntityBlock {
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
     }
 
-    // ------------------------------------------------------------------
-    // Block Entity
-    // ------------------------------------------------------------------
+    
+    
+    
 
     @Override
     @Nullable
@@ -80,7 +69,7 @@ public class MemorialBlock extends BaseEntityBlock {
 
     @Override
     public RenderShape getRenderShape(BlockState state) {
-        return RenderShape.MODEL; // use the normal block model, not INVISIBLE
+        return RenderShape.MODEL; 
     }
 
     @Override
@@ -98,14 +87,14 @@ public class MemorialBlock extends BaseEntityBlock {
     @Override
     @Nullable
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        // Front of the block faces the player who placed it
+        
         return defaultBlockState().setValue(FACING,
                 context.getHorizontalDirection().getOpposite());
     }
 
-    // ------------------------------------------------------------------
-    // Interaction
-    // ------------------------------------------------------------------
+    
+    
+    
 
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos,
@@ -118,7 +107,7 @@ public class MemorialBlock extends BaseEntityBlock {
         ItemStack held = player.getItemInHand(hand);
 
         if (held.getItem() == ModItems.GHOST_ESSENCE.get()) {
-            // Bind the memorial to this essence
+            
             if (memorial.bindToEssence(held)) {
                 if (!player.isCreative()) held.shrink(1);
                 level.sendBlockUpdated(pos, state, state, 3);
@@ -133,7 +122,7 @@ public class MemorialBlock extends BaseEntityBlock {
         }
 
         if (held.isEmpty()) {
-            // Show the memorial inscription
+            
             player.sendSystemMessage(memorial.getStatusMessage(level.getGameTime()));
             return InteractionResult.SUCCESS;
         }

@@ -12,56 +12,41 @@ import java.nio.ByteBuffer;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-/**
- * Controls the server-side playback of a ghost's recorded frames.
- *
- * <p>The controller replays frames in the same direction they were recorded:
- * oldest retained frame to newest/death frame. Frame deltas are stretched over
- * their recorded tickDelta so walking, falling, and burning loops play at the
- * same pace the player experienced.
- */
+ 
+
 public class PlaybackController {
 
-    /** Read-only heap buffer wrapping the serialised frame bytes. */
+     
     private final ByteBuffer frames;
     private final int frameCount;
 
-    /** Absolute world coordinates of the oldest retained sample. */
+     
     private final double startX, startY, startZ;
 
-    /**
-     * First frame index that has noticeable movement (XZ >= 0.05 or Y >= 0.05 blocks).
-     * Leading stationary frames (player was standing still before the fatal fall) are
-     * skipped so the ghost immediately starts moving when the loop begins/resets.
-     */
+     
+
     private final int    loopStartFrame;
     private final double loopStartX, loopStartY, loopStartZ;
 
-    /** Running absolute position during playback. */
+     
     private double currentX, currentY, currentZ;
 
-    /** Frame cursor for forward playback, oldest -> newest. */
+     
     private int currentFrame;
     private int frameTick;
     private double frameStartX, frameStartY, frameStartZ;
     private double frameTargetX, frameTargetY, frameTargetZ;
 
-    /** True once end-of-recording animation is triggered; cleared on reset. */
+     
     private boolean playbackComplete = false;
 
-    /**
-     * Create a controller from raw, ordered frame bytes.
-     *
-     * @param rawFrameBytes bytes exported from the circular frame buffer
-     * @param deathX        absolute X coordinate where the player died
-     * @param deathY        absolute Y coordinate where the player died
-     * @param deathZ        absolute Z coordinate where the player died
-     */
+     
+
     public PlaybackController(byte[] rawFrameBytes, double deathX, double deathY, double deathZ) {
-        // --- Trim to the last 10 seconds (200 ticks) with meaningful movement ---
-        final int MIN_TICKS = 60;           // 3 s minimum window
-        final int MAX_TICKS = 200;          // 10 s hard cap
-        final double MIN_PATH_BLOCKS = 0.5; // require some movement
+        
+        final int MIN_TICKS = 60;           
+        final int MAX_TICKS = 200;          
+        final double MIN_PATH_BLOCKS = 0.5; 
         int incomingFrames = rawFrameBytes.length / Frame.BYTES;
         if (incomingFrames > 1) {
             java.nio.ByteBuffer scan = java.nio.ByteBuffer.wrap(rawFrameBytes);
@@ -118,11 +103,11 @@ public class PlaybackController {
         this.startY = deathY - totalDy;
         this.startZ = deathZ - totalDz;
 
-        // Scan for the first frame with noticeable movement so the playback loop
-        // skips any leading "standing still" portion.  This fixes the case where
-        // the player stood motionless for most of the recording window and then
-        // died from a fall — without the skip the ghost visually stands in place
-        // at the cliff edge for most of the loop before falling.
+        
+        
+        
+        
+        
         {
             int   firstMoving = 0;
             double lsX = startX, lsY = startY, lsZ = startZ;
@@ -161,15 +146,13 @@ public class PlaybackController {
         this.frameTargetZ = loopStartZ;
     }
 
-    /**
-     * Advance playback by one game tick and apply the result to {@code ghost}.
-     * Must be called server-side only.
-     */
+     
+
     public void tick(GhostEntity ghost) {
         if (frameCount == 0) return;
 
         if (currentFrame >= frameCount) {
-            // Trigger loop death animation once; playback resumes after it ends.
+            
             if (!playbackComplete) {
                 playbackComplete = true;
                 ModLogger.PLAYBACK.info("Ghost[{}] reached end of recording ({} frames). Playing loop death animation.",
@@ -216,17 +199,17 @@ public class PlaybackController {
         float yaw = yawCenti / 100.0f;
         float pitch = pitchCenti / 100.0f;
 
-        // moveTo() sets position AND rotation in a way that vanilla properly
-        // tracks for client packet generation. setPos() alone does not always
-        // mark the entity as moved for packet purposes.
+        
+        
+        
         ghost.moveTo(currentX, currentY, currentZ, yaw, pitch);
         ghost.setYHeadRot(yaw);
         ghost.setYBodyRot(yaw);
 
-        // DO NOT touch xOld/yOld/zOld or yRotO/xRotO here.
-        // Vanilla super.tick() will set them BEFORE this tick runs.
+        
+        
 
-        // Delta movement is used by walk animation in GhostEntity.tick()
+        
         ghost.setDeltaMovement(
                 currentX - previousX,
                 currentY - previousY,
@@ -260,7 +243,7 @@ public class PlaybackController {
         ghost.setDeltaMovement(0.0, 0.0, 0.0);
     }
 
-    /** The position where the ghost's playback loop begins (first frame with movement). */
+     
     public double[] getStartPosition() {
         return new double[]{ loopStartX, loopStartY, loopStartZ };
     }
@@ -274,10 +257,8 @@ public class PlaybackController {
         return start + (end - start) * clamped;
     }
 
-    /**
-     * Save the raw frame bytes (GZIP-compressed) plus the death position into a
-     * tag so the controller can be reconstructed after a server restart.
-     */
+     
+
     public CompoundTag saveToNbt(double deathX, double deathY, double deathZ) {
         CompoundTag tag = new CompoundTag();
         tag.putDouble("deathX", deathX);
@@ -304,7 +285,7 @@ public class PlaybackController {
         return tag;
     }
 
-    /** Restore a controller from a previously saved NBT compound. */
+     
     public static PlaybackController loadFromNbt(CompoundTag tag) {
         double deathX = tag.getDouble("deathX");
         double deathY = tag.getDouble("deathY");
@@ -328,12 +309,12 @@ public class PlaybackController {
         return new PlaybackController(raw, deathX, deathY, deathZ);
     }
 
-    /** Estimate memory used by the frame data in bytes. */
+     
     public int frameBytesSize() {
         return frameCount * Frame.BYTES;
     }
 
-    /** Approximate kilobytes used by all frame data. */
+     
     public float kilobytes() {
         return frameCount * Frame.BYTES / 1024f;
     }

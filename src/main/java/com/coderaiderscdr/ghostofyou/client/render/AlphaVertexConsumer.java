@@ -4,30 +4,15 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
-/**
- * Wraps a {@link VertexConsumer} and multiplies the alpha channel of every
- * vertex by a configurable factor.  Used by {@link GhostEntityRenderer} to
- * apply the configurable {@code ghostTransparency} value without custom shaders.
- *
- * <p>All other components (UV, normal, overlay, light) are forwarded unchanged.
- */
 public class AlphaVertexConsumer implements VertexConsumer {
 
     private final VertexConsumer delegate;
     private final float alphaFactor;
 
-    /**
-     * @param delegate    the real {@link VertexConsumer} to forward vertices to
-     * @param alphaFactor multiplied with every per-vertex alpha (0.0 – 1.0)
-     */
     public AlphaVertexConsumer(VertexConsumer delegate, float alphaFactor) {
         this.delegate    = delegate;
         this.alphaFactor = alphaFactor;
     }
-
-    // ------------------------------------------------------------------
-    // Position + color (where we intercept alpha)
-    // ------------------------------------------------------------------
 
     @Override
     public VertexConsumer vertex(double x, double y, double z) {
@@ -40,10 +25,6 @@ public class AlphaVertexConsumer implements VertexConsumer {
         delegate.color(r, g, b, (int) (a * alphaFactor));
         return this;
     }
-
-    // ------------------------------------------------------------------
-    // Pass-through for everything else
-    // ------------------------------------------------------------------
 
     @Override
     public VertexConsumer uv(float u, float v) {
